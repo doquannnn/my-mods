@@ -1,0 +1,9 @@
+{
+  "name": "token-weather",
+  "displayName": "Token Weather",
+  "version": "0.1.0",
+  "description": "Shows context window usage as a weather forecast above the prompt: percent used, token count, and a sparkline of recent turns, with a warning when compaction is near.",
+  "author": { "name": "Do Quan" },
+  "keywords": ["context-window", "tokens", "usage", "ui", "mod"],
+  "types": "./types/index.d.ts"
+}
