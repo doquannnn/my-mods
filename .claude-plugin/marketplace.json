@@ -1,0 +1,12 @@
+{
+  "name": "my-mods",
+  "description": "Personal mods that change Claude Code's interface.",
+  "owner": { "name": "Do Quan" },
+  "plugins": [
+    {
+      "name": "token-weather",
+      "source": "./token-weather",
+      "description": "Context window usage as a weather forecast above the prompt, from Clear to Compact soon."
+    }
+  ]
+}
