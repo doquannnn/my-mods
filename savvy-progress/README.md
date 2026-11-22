@@ -48,6 +48,10 @@ Nhân vật được chọn theo thứ tự ưu tiên:
 | Loại khác, model Haiku hoặc chưa rõ | Bản gốc |
 | Lệnh shell | Hỏa hệ |
 
+**Chuyển động** (chậm, biên độ nhỏ): việc đang chạy thì nhân vật nhún nhẹ lên xuống (chu kỳ 2,4 giây) và huy hiệu sáng mờ dần; lệnh shell chạy nền thì lắc qua lại (4 giây). Việc đã xong, lỗi hoặc bị dừng thì đứng yên. Ai bật "giảm chuyển động" (reduced motion) trong hệ điều hành thì không có chuyển động.
+
+![Animation](docs/animation.gif)
+
 Ảnh gốc ở `assets/characters/*.png` (96×96, đã tách nền). `hooks/characters.ts` chứa các ảnh đó dạng base64, sinh ra từ thư mục này; khi thay ảnh thì sinh lại file đó. Cách gán nhân vật nằm trong `hooks/sprites.ts`.
 
 Terminal không vẽ được `Svg`, nên ở terminal mỗi việc là một dòng chữ có màu:

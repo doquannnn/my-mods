@@ -7,7 +7,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { AgentRun, AgentStatus, ShellRun, ShellStatus } from '../types'
-import { agentSvg, shellSvg } from './sprites'
+import { agentSvg, isAnimated, shellSvg } from './sprites'
 
 type Engine = EngineInterface
 
@@ -345,10 +345,10 @@ export const register: Register = (on, options) => {
     const agentRows = Math.max(2, Math.min(a.length, Math.floor(rows / 2 / perItem)))
     const shellRows = Math.max(2, Math.floor((rows - agentRows * perItem - 4) / perItem))
 
-    const card = (key: string, svg: string, alt: string, title: string, sub: string, color: string | undefined, right: string) =>
+    const card = (key: string, svg: string, alt: string, title: string, sub: string, color: string | undefined, right: string, moves: boolean) =>
       Svg ? (
         <Box key={key} flexDirection="row" gap={1} alignItems="center">
-          <Svg source={svg} alt={alt} width={28} height={28} />
+          <Svg source={svg} alt={alt} width={28} height={28} isInteractive={moves || undefined} />
           <Box flexDirection="column" flexGrow={1}>
             <Text bold>{title}</Text>
             <Text dimColor>{sub}</Text>
@@ -376,6 +376,7 @@ export const register: Register = (on, options) => {
                 agentSub(r),
                 statusColor(r.status),
                 `${icon(r.status, t)} ${elapsed(r, t)}`,
+                isAnimated(r.status),
               )
             : <Text color={statusColor(r.status)}>{cut(agentLine(r, t), cols)}</Text>,
         )}
@@ -391,6 +392,7 @@ export const register: Register = (on, options) => {
                 shellSub(r, a),
                 statusColor(r.status),
                 `${icon(r.status, t)} ${elapsed(r, t)}`,
+                isAnimated(r.status),
               )
             : <Text color={statusColor(r.status)}>{cut(shellLine(r, t, a), cols)}</Text>,
         )}
