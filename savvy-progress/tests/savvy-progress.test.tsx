@@ -1,4 +1,5 @@
 import { expect, test } from 'claude-code/testing'
+import { agentCharacter, agentSvg, shellSvg } from '../hooks/sprites'
 
 const BAND = {
   plugin: 'savvy-progress',
@@ -56,9 +57,17 @@ for (const surface of ['terminal', 'desktop'] as const) {
     await band.unmount()
 
     const pane = await $.ui.mount({ ...PANE, surface } as any)
-    expect(await pane.find({ type: 'Text', text: /✓ \$ npm test — Run tests/ })).toBeDefined()
-    expect(await pane.find({ type: 'Text', text: /✗ \$ npm run lint/ })).toBeDefined()
-    expect(await pane.find({ type: 'Text', text: /◌ \$ npm run dev .*bg/ })).toBeDefined()
+    if (surface === 'terminal') {
+      expect(await pane.find({ type: 'Text', text: /✓ \$ npm test — Run tests/ })).toBeDefined()
+      expect(await pane.find({ type: 'Text', text: /✗ \$ npm run lint/ })).toBeDefined()
+      expect(await pane.find({ type: 'Text', text: /◌ \$ npm run dev .*bg/ })).toBeDefined()
+    } else {
+      expect(await pane.findAll({ type: 'Svg' } as any)).toHaveLength(3)
+      expect(await pane.find({ type: 'Text', text: /^\$ npm test$/ })).toBeDefined()
+      expect(await pane.find({ type: 'Text', text: /^Run tests$/ })).toBeDefined()
+      expect(await pane.find({ type: 'Text', text: /^✗ / })).toBeDefined()
+      expect(await pane.find({ type: 'Text', text: /^◌ / })).toBeDefined()
+    }
     await pane.unmount()
 
     // The background task's notification settles it.
@@ -67,7 +76,11 @@ for (const surface of ['terminal', 'desktop'] as const) {
       origin: { kind: 'task-notification' },
     } as any)
     const after = await $.ui.mount({ ...PANE, surface } as any)
-    expect(await after.find({ type: 'Text', text: /✓ \$ npm run dev/ })).toBeDefined()
+    if (surface === 'terminal') {
+      expect(await after.find({ type: 'Text', text: /✓ \$ npm run dev/ })).toBeDefined()
+    } else {
+      expect(await after.find({ type: 'Text', text: /^◌ / })).toBeUndefined()
+    }
     await after.unmount()
   })
 
@@ -80,8 +93,16 @@ for (const surface of ['terminal', 'desktop'] as const) {
     await $.tool.call({ tool: 'Bash', command: 'git log -1', agentId: 'a1' } as any)
 
     const pane = await $.ui.mount({ ...PANE, surface } as any)
-    expect(await pane.find({ type: 'Text', text: /Explore "Find auth code".*2 tools.*\$ git log -1/ })).toBeDefined()
-    expect(await pane.find({ type: 'Text', text: /\$ git log -1 · .* by Explore/ })).toBeDefined()
+    if (surface === 'terminal') {
+      expect(await pane.find({ type: 'Text', text: /Explore "Find auth code".*2 tools.*\$ git log -1/ })).toBeDefined()
+      expect(await pane.find({ type: 'Text', text: /\$ git log -1 · .* by Explore/ })).toBeDefined()
+    } else {
+      expect(await pane.find({ type: 'Text', text: /^Find auth code$/ })).toBeDefined()
+      expect(await pane.find({ type: 'Text', text: /^Explore · .*2 tools · \$ git log -1$/ })).toBeDefined()
+      expect(await pane.find({ type: 'Text', text: /^by Explore$/ })).toBeDefined()
+      const icons = await pane.findAll({ type: 'Svg' } as any)
+      expect(icons).toHaveLength(2)
+    }
     await pane.unmount()
 
     await $.turn.complete({
@@ -95,7 +116,11 @@ for (const surface of ['terminal', 'desktop'] as const) {
     } as any)
 
     const done = await $.ui.mount({ ...PANE, surface } as any)
-    expect(await done.find({ type: 'Text', text: /✓ Explore "Find auth code" · haiku-5-5 .*1\.5k tok/ })).toBeDefined()
+    if (surface === 'terminal') {
+      expect(await done.find({ type: 'Text', text: /✓ Explore "Find auth code" · haiku-5-5 .*1\.5k tok/ })).toBeDefined()
+    } else {
+      expect(await done.find({ type: 'Text', text: /^Explore · haiku-5-5 .*1\.5k tok$/ })).toBeDefined()
+    }
     await done.unmount()
   })
 }
@@ -110,4 +135,19 @@ test('the band stays out of the way until something runs', async ($, on) => {
   const band = await $.ui.mount({ ...BAND, surface: 'terminal' } as any)
   expect((await band.find({ type: 'Text' }))?.text).toBe('engine')
   await band.unmount()
+})
+
+test('each subagent wears a costume by status, type and model', () => {
+  expect(agentCharacter('claude-sonnet-5-5', 'Explore', 'failed')).toBe('berserker')
+  expect(agentCharacter('claude-sonnet-5-5', 'Explore', 'running')).toBe('explorer')
+  expect(agentCharacter('claude-opus-5-5', 'Plan', 'done')).toBe('pirate')
+  expect(agentCharacter('', 'fork', 'running')).toBe('assassin')
+  expect(agentCharacter('claude-fable-5-2', 'general-purpose', 'done')).toBe('wizard')
+  expect(agentCharacter('claude-opus-5-5', 'general-purpose', 'done')).toBe('king')
+  expect(agentCharacter('claude-sonnet-5-5', 'general-purpose', 'done')).toBe('knight')
+  expect(agentCharacter('claude-haiku-5-5', 'general-purpose', 'done')).toBe('original')
+  expect(agentCharacter('', 'my-plugin:reviewer', 'running')).toBe('original')
+  expect(agentSvg('claude-haiku-5-5', 'Explore', 'done')).toContain('#27ae60')
+  expect(shellSvg('failed')).toContain('#eb5757')
+  expect(shellSvg('done').length).toBeLessThan(131072)
 })
