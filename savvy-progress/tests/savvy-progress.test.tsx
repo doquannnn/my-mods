@@ -1,5 +1,5 @@
 import { expect, test } from 'claude-code/testing'
-import { agentCharacter, agentSvg, shellSvg } from '../hooks/sprites'
+import { agentCharacter, agentSvg, isAnimated, shellSvg } from '../hooks/sprites'
 
 const BAND = {
   plugin: 'savvy-progress',
@@ -150,4 +150,11 @@ test('each subagent wears a costume by status, type and model', () => {
   expect(agentSvg('claude-haiku-5-5', 'Explore', 'done')).toContain('#27ae60')
   expect(shellSvg('failed')).toContain('#eb5757')
   expect(shellSvg('done').length).toBeLessThan(131072)
+  // Only live runs move, slowly, and reduced motion turns it off.
+  expect(isAnimated('running')).toBe(true)
+  expect(isAnimated('done')).toBe(false)
+  expect(agentSvg('claude-opus-5-5', 'Plan', 'running')).toContain('bob 2.4s')
+  expect(shellSvg('background')).toContain('sway 4s')
+  expect(agentSvg('claude-opus-5-5', 'Plan', 'running')).toContain('prefers-reduced-motion')
+  expect(agentSvg('claude-opus-5-5', 'Plan', 'done')).not.toContain('@keyframes')
 })
