@@ -48,7 +48,7 @@ Nhân vật được chọn theo thứ tự ưu tiên:
 | Loại khác, model Haiku hoặc chưa rõ | Bản gốc |
 | Lệnh shell | Hỏa hệ |
 
-**Chuyển động** (chậm, biên độ nhỏ): việc đang chạy thì nhân vật nhún nhẹ lên xuống (chu kỳ 2,4 giây) và huy hiệu sáng mờ dần; lệnh shell chạy nền thì lắc qua lại (4 giây). Việc đã xong, lỗi hoặc bị dừng thì đứng yên. Ai bật "giảm chuyển động" (reduced motion) trong hệ điều hành thì không có chuyển động.
+**Chuyển động** (chậm, biên độ nhỏ): việc đang chạy thì nhân vật nhún nhẹ lên xuống (chu kỳ 2,4 giây) và huy hiệu sáng mờ dần; lệnh shell chạy nền thì lắc qua lại (4 giây). Việc đã xong, lỗi hoặc bị dừng thì đứng yên. Ai bật "giảm chuyển động" (reduced motion) trong hệ điều hành thì không có chuyển động. Icon được vẽ ở chế độ ảnh thường (không `isInteractive`): ở chế độ tương tác, app desktop không hiện ảnh nhân vật nhúng trong SVG.
 
 ![Animation](docs/animation.gif)
 

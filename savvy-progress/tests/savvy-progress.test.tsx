@@ -125,6 +125,24 @@ for (const surface of ['terminal', 'desktop'] as const) {
   })
 }
 
+test('a subagent long shell command is shown short', async ($, on) => {
+  engine(on, () => ok)
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true } as any)
+  await $.agent.spawn({ prompt: 'look', description: 'Review', subagentType: 'general-purpose' } as any)
+  const long = 'cd "/home/me/Project" && ' + 'grep -nE x file | head -20; '.repeat(20)
+  await $.tool.call({ tool: 'Bash', command: long, agentId: 'a1' } as any)
+  let pane = await $.ui.mount({ ...PANE, surface: 'desktop' } as any)
+  const sub = await pane.find({ type: 'Text', text: /^general-purpose · / })
+  expect(sub?.text.length).toBeLessThan(140)
+  expect(sub?.text).toContain('…')
+  await pane.unmount()
+
+  await $.tool.call({ tool: 'Bash', command: long, description: 'Scan the repo for links', agentId: 'a1' } as any)
+  pane = await $.ui.mount({ ...PANE, surface: 'desktop' } as any)
+  expect(await pane.find({ type: 'Text', text: /· Scan the repo for links$/ })).toBeDefined()
+  await pane.unmount()
+})
+
 test('the band stays out of the way until something runs', async ($, on) => {
   engine(on, () => ok)
   on('ui.render', ($: any, e: any) => {

@@ -7,7 +7,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { AgentRun, AgentStatus, ShellRun, ShellStatus } from '../types'
-import { agentSvg, isAnimated, shellSvg } from './sprites'
+import { agentSvg, shellSvg } from './sprites'
 
 type Engine = EngineInterface
 
@@ -345,13 +345,13 @@ export const register: Register = (on, options) => {
     const agentRows = Math.max(2, Math.min(a.length, Math.floor(rows / 2 / perItem)))
     const shellRows = Math.max(2, Math.floor((rows - agentRows * perItem - 4) / perItem))
 
-    const card = (key: string, svg: string, alt: string, title: string, sub: string, color: string | undefined, right: string, moves: boolean) =>
+    const card = (key: string, svg: string, alt: string, title: string, sub: string, color: string | undefined, right: string) =>
       Svg ? (
         <Box key={key} flexDirection="row" gap={1} alignItems="center">
-          <Svg source={svg} alt={alt} width={28} height={28} isInteractive={moves || undefined} />
+          <Svg source={svg} alt={alt} width={28} height={28} />
           <Box flexDirection="column" flexGrow={1}>
-            <Text bold>{title}</Text>
-            <Text dimColor>{sub}</Text>
+            <Text bold>{cut(title, Math.max(20, cols - 14))}</Text>
+            <Text dimColor>{cut(sub, Math.max(20, cols - 14))}</Text>
           </Box>
           <Text color={color}>{right}</Text>
         </Box>
@@ -376,7 +376,6 @@ export const register: Register = (on, options) => {
                 agentSub(r),
                 statusColor(r.status),
                 `${icon(r.status, t)} ${elapsed(r, t)}`,
-                isAnimated(r.status),
               )
             : <Text color={statusColor(r.status)}>{cut(agentLine(r, t), cols)}</Text>,
         )}
@@ -392,7 +391,6 @@ export const register: Register = (on, options) => {
                 shellSub(r, a),
                 statusColor(r.status),
                 `${icon(r.status, t)} ${elapsed(r, t)}`,
-                isAnimated(r.status),
               )
             : <Text color={statusColor(r.status)}>{cut(shellLine(r, t, a), cols)}</Text>,
         )}
@@ -577,13 +575,19 @@ function statusColor(status: ShellStatus | AgentStatus): string | undefined {
   return undefined
 }
 
+// What a subagent is doing now, kept short: a shell command by its own
+// description when it gave one, else its first line, cut to LABEL characters.
+const LABEL = 48
+
 function toolLabel(tool: string, args: Record<string, unknown>): string {
   const pick = (k: string) => (typeof args[k] === 'string' ? (args[k] as string) : '')
-  if (SHELL_TOOLS.has(tool)) return `$ ${firstLine(pick('command'))}`
+  if (SHELL_TOOLS.has(tool)) {
+    return cut(pick('description') || `$ ${firstLine(pick('command'))}`, LABEL)
+  }
   const path = pick('file_path') || pick('path') || pick('notebook_path')
-  if (path) return `${tool} ${path.split('/').pop()}`
+  if (path) return cut(`${tool} ${path.split('/').pop()}`, LABEL)
   const what = pick('pattern') || pick('query') || pick('url') || pick('description')
-  return what ? `${tool} ${what}` : tool
+  return cut(what ? `${tool} ${firstLine(what)}` : tool, LABEL)
 }
 
 function elapsed(r: { startedAt: number; endedAt?: number }, t: number): string {
