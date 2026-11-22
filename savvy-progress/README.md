@@ -30,12 +30,25 @@ Một "đợt" bắt đầu khi bạn gửi prompt mà không còn gì đang ch�
 
 Mở bằng `/savvy-progress` hoặc nút `Details`. Có hai danh sách, mỗi dòng một việc.
 
-Trên desktop, editor và mobile, mỗi việc là một thẻ có icon pixel-art (tự vẽ, trong `hooks/sprites.ts`):
+Trên desktop, editor và mobile, mỗi việc là một thẻ có icon nhân vật (linh vật cam, 9 trang phục) và huy hiệu trạng thái ở góc: xanh dương đang chạy, xanh lá xong, đỏ lỗi, vàng chạy nền, xám bị từ chối/dừng.
 
 ![Icons](docs/icons.png)
 
-- **Robot** cho subagent: màu thân theo model (Fable tím, Opus cam, Sonnet xanh dương, Haiku xanh lá, khác xám), màu ăng-ten theo loại agent, mắt đổi theo trạng thái (đang chạy: mắt mở; xong: `^ ^`; lỗi: mắt sụp).
-- **Cửa sổ terminal** cho lệnh shell: dấu `>_` màu theo trạng thái (cyan đang chạy, xanh lá xong, đỏ lỗi, vàng chạy nền, xám bị từ chối/dừng).
+Nhân vật được chọn theo thứ tự ưu tiên:
+
+| Điều kiện | Nhân vật |
+| :- | :- |
+| Subagent lỗi hoặc bị ngắt | Chiến binh hung hăng |
+| Loại `Explore` | Thám hiểm |
+| Loại `Plan` | Cướp biển |
+| Loại `fork` | Thích khách |
+| Loại khác, model Fable | Pháp sư |
+| Loại khác, model Opus | Nhà vua |
+| Loại khác, model Sonnet | Hiệp sĩ |
+| Loại khác, model Haiku hoặc chưa rõ | Bản gốc |
+| Lệnh shell | Hỏa hệ |
+
+Ảnh gốc ở `assets/characters/*.png` (96×96, đã tách nền). `hooks/characters.ts` chứa các ảnh đó dạng base64, sinh ra từ thư mục này; khi thay ảnh thì sinh lại file đó. Cách gán nhân vật nằm trong `hooks/sprites.ts`.
 
 Terminal không vẽ được `Svg`, nên ở terminal mỗi việc là một dòng chữ có màu:
 
@@ -110,10 +123,12 @@ savvy-progress/
 ├── hooks/
 │   ├── hooks.json                  khai báo module của mod
 │   ├── register.tsx                toàn bộ logic
-│   └── sprites.ts                  icon pixel-art (SVG)
+│   ├── sprites.ts                  chọn nhân vật + huy hiệu (SVG)
+│   └── characters.ts               ảnh nhân vật dạng base64 (sinh tự động)
+├── assets/characters/*.png        9 ảnh nhân vật
 ├── docs/icons.png                  ảnh xem trước icon
 ├── types/index.d.ts                kiểu của state savvy-progress.*
-└── tests/savvy-progress.test.tsx   test shell, subagent và dải
+└── tests/savvy-progress.test.tsx   test shell, subagent, dải và nhân vật
 ```
 
 Chạy test:

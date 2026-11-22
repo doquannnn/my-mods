@@ -7,7 +7,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { AgentRun, AgentStatus, ShellRun, ShellStatus } from '../types'
-import { robotSvg, shellSvg } from './sprites'
+import { agentSvg, shellSvg } from './sprites'
 
 type Engine = EngineInterface
 
@@ -370,7 +370,7 @@ export const register: Register = (on, options) => {
           Svg
             ? card(
                 `agent-${r.id}`,
-                robotSvg(r.model, r.type, r.status),
+                agentSvg(r.model, r.type, r.status),
                 `${r.type} subagent, ${r.status}`,
                 `${r.parentAgentId ? '↳ ' : ''}${r.description}`,
                 agentSub(r),

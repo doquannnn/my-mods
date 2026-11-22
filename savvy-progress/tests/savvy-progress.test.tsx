@@ -1,4 +1,5 @@
 import { expect, test } from 'claude-code/testing'
+import { agentCharacter, agentSvg, shellSvg } from '../hooks/sprites'
 
 const BAND = {
   plugin: 'savvy-progress',
@@ -134,4 +135,19 @@ test('the band stays out of the way until something runs', async ($, on) => {
   const band = await $.ui.mount({ ...BAND, surface: 'terminal' } as any)
   expect((await band.find({ type: 'Text' }))?.text).toBe('engine')
   await band.unmount()
+})
+
+test('each subagent wears a costume by status, type and model', () => {
+  expect(agentCharacter('claude-sonnet-5-5', 'Explore', 'failed')).toBe('berserker')
+  expect(agentCharacter('claude-sonnet-5-5', 'Explore', 'running')).toBe('explorer')
+  expect(agentCharacter('claude-opus-5-5', 'Plan', 'done')).toBe('pirate')
+  expect(agentCharacter('', 'fork', 'running')).toBe('assassin')
+  expect(agentCharacter('claude-fable-5-2', 'general-purpose', 'done')).toBe('wizard')
+  expect(agentCharacter('claude-opus-5-5', 'general-purpose', 'done')).toBe('king')
+  expect(agentCharacter('claude-sonnet-5-5', 'general-purpose', 'done')).toBe('knight')
+  expect(agentCharacter('claude-haiku-5-5', 'general-purpose', 'done')).toBe('original')
+  expect(agentCharacter('', 'my-plugin:reviewer', 'running')).toBe('original')
+  expect(agentSvg('claude-haiku-5-5', 'Explore', 'done')).toContain('#27ae60')
+  expect(shellSvg('failed')).toContain('#eb5757')
+  expect(shellSvg('done').length).toBeLessThan(131072)
 })
