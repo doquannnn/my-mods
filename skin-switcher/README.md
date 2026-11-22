@@ -12,7 +12,7 @@ Các skin lấy từ repo [hellosverre/claude-skins](https://github.com/hellosve
 | `/skin nord` | Đổi thẳng sang skin `nord`, không cần mở danh sách |
 | `/skin default` | Như chọn **Default** trong danh sách |
 
-**Default (Claude)** là lựa chọn đầu tiên. Khi chưa bật skin nào, chọn Default không làm gì cả. Khi đang bật một skin, chọn Default sẽ gỡ skin đó và trả Claude về giao diện gốc.
+**Default (Claude)** là lựa chọn đầu tiên. Chọn Default sẽ gỡ theme đang hiện trong phiên và trả Claude về giao diện gốc. Khi chưa có skin nào thì giao diện không đổi gì. Lưu ý: Claude Code chỉ có một theme cho mỗi phiên, nên Default cũng gỡ theme do mod khác đặt (nếu có).
 
 Skin đã chọn được lưu lại, phiên sau tự bật lại skin đó.
 

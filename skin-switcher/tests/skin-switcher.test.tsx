@@ -83,14 +83,15 @@ for (const surface of ['terminal', 'desktop'] as const) {
   })
 }
 
-test('Default does nothing when no skin is on', async ($, on) => {
+test('Default sets no skin and clears what stands, even with nothing stored', async ($, on) => {
+  // Another session picked Default: nothing is stored, but this session's skin still stands.
   const calls = engine(on)
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
 
   const ran = await $.command.run(typed('default'))
-  expect(ran.text).toBe('Default: Claude keeps its own look.')
+  expect(ran.text).toBe('Default: Claude’s own look.')
   expect(calls.set).toBe(0)
-  expect(calls.clear).toBe(0)
+  expect(calls.clear).toBe(1)
 })
 
 test('Default takes a skin off, and a picked skin comes back next session', async ($, on) => {
