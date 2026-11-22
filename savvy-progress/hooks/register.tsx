@@ -7,6 +7,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { AgentRun, AgentStatus, ShellRun, ShellStatus } from '../types'
+import { robotSvg, shellSvg } from './sprites'
 
 type Engine = EngineInterface
 
@@ -330,14 +331,31 @@ export const register: Register = (on, options) => {
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const { Box, Text, Button } = $.ui.resolve(e)
+    const table = $.ui.resolve(e)
+    const { Box, Text, Button } = table
+    // Surfaces that draw Svg (desktop, editor, mobile) get pixel-art cards;
+    // the terminal keeps one line of text per run.
+    const Svg = e.surface !== 'terminal' && 'Svg' in table ? table.Svg : undefined
     const [s, a, tick] = await Promise.all([read($, shells), read($, agents), read($, now)])
     const t = Math.max(tick, await $.clock.now())
     const cols = Math.max(20, e.props.bodyColumns)
     const rows = Math.max(6, (e.viewport?.rows ?? 30) - 3)
     // Agents first, newest last; split the rows between the two lists.
-    const agentRows = Math.max(2, Math.min(a.length, Math.floor(rows / 2)))
-    const shellRows = Math.max(2, rows - agentRows - 4)
+    const perItem = Svg ? 2 : 1
+    const agentRows = Math.max(2, Math.min(a.length, Math.floor(rows / 2 / perItem)))
+    const shellRows = Math.max(2, Math.floor((rows - agentRows * perItem - 4) / perItem))
+
+    const card = (key: string, svg: string, alt: string, title: string, sub: string, color: string | undefined, right: string) =>
+      Svg ? (
+        <Box key={key} flexDirection="row" gap={1} alignItems="center">
+          <Svg source={svg} alt={alt} width={28} height={28} />
+          <Box flexDirection="column" flexGrow={1}>
+            <Text bold>{title}</Text>
+            <Text dimColor>{sub}</Text>
+          </Box>
+          <Text color={color}>{right}</Text>
+        </Box>
+      ) : null
 
     return (
       <Box flexDirection="column">
@@ -348,14 +366,34 @@ export const register: Register = (on, options) => {
         </Box>
         <Text bold>{`Agents  ${counts('', a, t).trim()}`}</Text>
         {a.length === 0 && <Text dimColor>  No subagents yet.</Text>}
-        {a.slice(-agentRows).map(r => (
-          <Text color={statusColor(r.status)}>{cut(agentLine(r, t), cols)}</Text>
-        ))}
+        {a.slice(-agentRows).map(r =>
+          Svg
+            ? card(
+                `agent-${r.id}`,
+                robotSvg(r.model, r.type, r.status),
+                `${r.type} subagent, ${r.status}`,
+                `${r.parentAgentId ? '↳ ' : ''}${r.description}`,
+                agentSub(r),
+                statusColor(r.status),
+                `${icon(r.status, t)} ${elapsed(r, t)}`,
+              )
+            : <Text color={statusColor(r.status)}>{cut(agentLine(r, t), cols)}</Text>,
+        )}
         <Text bold>{`Shell  ${counts('', s, t).trim()}`}</Text>
         {s.length === 0 && <Text dimColor>  No shell commands yet.</Text>}
-        {s.slice(-shellRows).map(r => (
-          <Text color={statusColor(r.status)}>{cut(shellLine(r, t, a), cols)}</Text>
-        ))}
+        {s.slice(-shellRows).map(r =>
+          Svg
+            ? card(
+                `shell-${r.id}`,
+                shellSvg(r.status),
+                `shell command, ${r.status}`,
+                cut(`$ ${firstLine(r.command)}`, Math.max(20, cols - 20)),
+                shellSub(r, a),
+                statusColor(r.status),
+                `${icon(r.status, t)} ${elapsed(r, t)}`,
+              )
+            : <Text color={statusColor(r.status)}>{cut(shellLine(r, t, a), cols)}</Text>,
+        )}
       </Box>
     )
   })
@@ -476,6 +514,30 @@ function agentLine(r: AgentRun, t: number): string {
   const doing = r.current && (r.status === 'running' || r.status === 'starting') ? ` · ${r.current}` : ''
   const note = r.status === 'failed' && r.note ? ` · ${r.note}` : ''
   return `${icon(r.status, t)} ${nested}${r.type} "${r.description}"${model}${bg} · ${elapsed(r, t)} · ${r.steps} steps · ${r.tools} tools${tokens}${doing}${note}`
+}
+
+function agentSub(r: AgentRun): string {
+  const parts = [
+    r.type,
+    r.model && shortModel(r.model),
+    r.isBackground && 'bg',
+    `${r.steps} steps`,
+    `${r.tools} tools`,
+    r.tokens > 0 && `${short(r.tokens)} tok`,
+    (r.status === 'running' || r.status === 'starting') && r.current,
+    r.status === 'failed' && r.note,
+  ]
+  return parts.filter(Boolean).join(' · ')
+}
+
+function shellSub(r: ShellRun, list: readonly AgentRun[]): string {
+  const parts = [
+    r.description,
+    r.status === 'background' && 'background',
+    (r.status === 'denied' || r.status === 'stopped') && r.status,
+    r.agentId && `by ${list.find(a => a.agentId === r.agentId)?.type ?? 'subagent'}`,
+  ]
+  return parts.filter(Boolean).join(' · ') || r.tool
 }
 
 function shellLine(r: ShellRun, t: number, list: readonly AgentRun[]): string {

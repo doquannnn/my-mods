@@ -28,7 +28,16 @@ Một "đợt" bắt đầu khi bạn gửi prompt mà không còn gì đang ch�
 
 ### Pane `Progress`
 
-Mở bằng `/savvy-progress` hoặc nút `Details`. Có hai danh sách, mỗi dòng một việc:
+Mở bằng `/savvy-progress` hoặc nút `Details`. Có hai danh sách, mỗi dòng một việc.
+
+Trên desktop, editor và mobile, mỗi việc là một thẻ có icon pixel-art (tự vẽ, trong `hooks/sprites.ts`):
+
+![Icons](docs/icons.png)
+
+- **Robot** cho subagent: màu thân theo model (Fable tím, Opus cam, Sonnet xanh dương, Haiku xanh lá, khác xám), màu ăng-ten theo loại agent, mắt đổi theo trạng thái (đang chạy: mắt mở; xong: `^ ^`; lỗi: mắt sụp).
+- **Cửa sổ terminal** cho lệnh shell: dấu `>_` màu theo trạng thái (cyan đang chạy, xanh lá xong, đỏ lỗi, vàng chạy nền, xám bị từ chối/dừng).
+
+Terminal không vẽ được `Svg`, nên ở terminal mỗi việc là một dòng chữ có màu:
 
 - **Agents**: loại agent, mô tả, model, chạy nền hay không (`bg`), thời gian, số bước (request model), số tool call, số token, và tool call mới nhất khi đang chạy. Subagent con của subagent có dấu `↳`.
 - **Shell**: lệnh (dòng đầu), mô tả, thời gian, trạng thái và agent nào đã chạy nó (`by Explore`).
@@ -100,7 +109,9 @@ savvy-progress/
 ├── .claude-plugin/plugin.json      manifest + userConfig
 ├── hooks/
 │   ├── hooks.json                  khai báo module của mod
-│   └── register.tsx                toàn bộ logic
+│   ├── register.tsx                toàn bộ logic
+│   └── sprites.ts                  icon pixel-art (SVG)
+├── docs/icons.png                  ảnh xem trước icon
 ├── types/index.d.ts                kiểu của state savvy-progress.*
 └── tests/savvy-progress.test.tsx   test shell, subagent và dải
 ```
