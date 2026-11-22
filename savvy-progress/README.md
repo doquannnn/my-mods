@@ -6,9 +6,6 @@ Mod cho Claude Code: theo dõi tiến độ **lệnh shell** (Bash/PowerShell) v
 
 ```
 ⠹ Progress ████████░░░░ 7/10  shell 1 running · 5 done · 1 failed  agents 2 running · 1 done  [Details]
-  ⠹ Explore "Find auth code" · 34s · 6 steps · Grep login
-  ⠹ general-purpose "Fix the tests" · 1m 12s · 14 steps · $ npm test
-  ⠹ $ npm run build · 8s
 ```
 
 ## Mod này hiển thị gì
@@ -22,9 +19,8 @@ Mod cho Claude Code: theo dõi tiến độ **lệnh shell** (Bash/PowerShell) v
 | Đếm shell | `shell 1 running · 5 done · 1 failed` | Lệnh shell của đợt này |
 | Đếm agents | `agents 2 running · 1 done` | Subagent của đợt này |
 | Nút | `Details` | Mở pane chi tiết |
-| Các dòng dưới | `⠹ $ npm run build · 8s` | Tối đa 3 việc đang chạy, kèm thời gian và việc subagent đang làm |
 
-Một "đợt" bắt đầu khi bạn gửi prompt mà không còn gì đang chạy. Phần đếm chỉ hiện khi terminal rộng từ 60 cột.
+Một "đợt" bắt đầu khi bạn gửi prompt mà không còn gì đang chạy. Dải chỉ có một dòng; danh sách từng việc nằm trong pane (nút `Details`). Phần đếm chỉ hiện khi terminal rộng từ 60 cột.
 
 ### Pane `Progress`
 

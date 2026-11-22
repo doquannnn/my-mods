@@ -304,8 +304,6 @@ export const register: Register = (on, options) => {
     const spin = spinner(t)
     const head = live.length > 0 ? spin : failed > 0 ? '!' : '✓'
     const headColor = live.length > 0 ? 'cyan' : failed > 0 ? 'red' : 'green'
-    const room = Math.max(0, Math.min(3, e.props.maxRows - 1))
-
     return (
       <Box flexDirection="column" paddingX={1}>
         <Box flexDirection="row">
@@ -322,10 +320,6 @@ export const register: Register = (on, options) => {
           <Text> </Text>
           <Button key="details" label="Details" onPress={() => $.ui.open({ id: PANE, title: TITLE })} />
         </Box>
-        {live.slice(0, room).map(r => (
-          <Text dimColor>{cut('  ' + spin + ' ' + liveLine(r, t), cols)}</Text>
-        ))}
-        {live.length > room && room > 0 && <Text dimColor>{`  … ${live.length - room} more`}</Text>}
       </Box>
     )
   })
@@ -495,15 +489,6 @@ function counts(label: string, list: ReadonlyArray<ShellRun | AgentRun>, t: numb
   const done = list.length - live - failed
   const parts = [live && `${live} running`, done && `${done} done`, failed && `${failed} failed`].filter(Boolean)
   return `${label} ${parts.join(' · ')}`
-}
-
-function liveLine(r: ShellRun | AgentRun, t: number): string {
-  if ('command' in r) {
-    const bg = r.status === 'background' ? ' (bg)' : ''
-    return `$ ${firstLine(r.command)}${bg} · ${elapsed(r, t)}`
-  }
-  const doing = r.current ? ` · ${r.current}` : ''
-  return `${r.type} "${r.description}" · ${elapsed(r, t)} · ${r.steps} steps${doing}`
 }
 
 function agentLine(r: AgentRun, t: number): string {

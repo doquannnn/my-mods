@@ -53,7 +53,8 @@ for (const surface of ['terminal', 'desktop'] as const) {
 
     const band = await $.ui.mount({ ...BAND, surface } as any)
     expect(await band.find({ type: 'Text', text: /2\/3/ })).toBeDefined()
-    expect(await band.find({ type: 'Text', text: /npm run dev \(bg\)/ })).toBeDefined()
+    // One line only: the running items are in the pane, not under the bar.
+    expect(await band.find({ type: 'Text', text: /npm run dev/ })).toBeUndefined()
     await band.unmount()
 
     const pane = await $.ui.mount({ ...PANE, surface } as any)
