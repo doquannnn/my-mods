@@ -16,6 +16,14 @@ Các skin lấy từ repo [hellosverre/claude-skins](https://github.com/hellosve
 
 Skin đã chọn được lưu lại, phiên sau tự bật lại skin đó.
 
+Khi gõ `/skin`, dòng gợi ý mờ sau tên lệnh cho biết skin đang dùng và mọi tên có thể gõ, ví dụ:
+
+```
+/skin now: Nord · default | noir | tokyo-night | dracula | nord | …
+```
+
+Gợi ý này cập nhật ngay sau mỗi lần đổi skin.
+
 ## Danh sách skin
 
 | Tên gõ | Tên hiển thị | Chế độ |

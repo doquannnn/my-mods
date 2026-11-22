@@ -25,9 +25,13 @@ const typed = (args: string): CommandRunInput => ({
 
 // Hooks here stand for the engine: each records what the mod asked of it.
 const engine = (on: On) => {
-  const calls = { set: 0, clear: 0, stored: new Map<string, unknown>() }
+  const calls = { set: 0, clear: 0, hint: '', stored: new Map<string, unknown>() }
 
-  on('command.register', () => ({ value: { command: 'skin' } }))
+  on('command.register', (_, e) => {
+    calls.hint = e.argumentHint ?? ''
+
+    return { value: { command: 'skin' } }
+  })
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('ui.close', () => ({ value: undefined }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
@@ -110,4 +114,17 @@ test('an unknown name sets nothing', async ($, on) => {
   const ran = await $.command.run(typed('neon'))
   expect(ran.text).toMatch(/No skin named "neon"/)
   expect(calls.set).toBe(0)
+})
+
+test('the hint after /skin shows the skin on now and every choice', async ($, on) => {
+  const calls = engine(on)
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  expect(calls.hint).toMatch(/^now: Default \(Claude\) · default \| noir \| tokyo-night/)
+  expect(calls.hint).toMatch(/\| mono$/)
+
+  await $.command.run(typed('nord'))
+  expect(calls.hint).toMatch(/^now: Nord · /)
+
+  await $.command.run(typed('default'))
+  expect(calls.hint).toMatch(/^now: Default \(Claude\) · /)
 })

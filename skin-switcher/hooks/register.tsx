@@ -23,6 +23,22 @@ const stored = async ($: Api): Promise<string> => {
   return typeof value === 'string' && SKINS.some(skin => skin.name === value) ? value : DEFAULT
 }
 
+const labelOf = (name: string): string =>
+  OPTIONS.find(one => one.value === name)?.label ?? name
+
+// The hint drawn dim after `/skin` in the prompt: the skin on now, then every name it takes.
+const hintFor = (current: string): string =>
+  `now: ${labelOf(current)} · ${OPTIONS.map(one => one.value).join(' | ')}`
+
+// Registering again replaces the command, so the hint follows each pick.
+const announce = async ($: Api, current: string): Promise<void> => {
+  await $.command.register({
+    name: 'skin',
+    description: `Pick a skin for Claude (now: ${labelOf(current)}), or Default to keep its own look`,
+    argumentHint: hintFor(current),
+  })
+}
+
 // Puts a skin on, or takes this mod's off for `default`. Answers the line to show.
 const apply = async ($: Api, name: string): Promise<string> => {
   if (name === DEFAULT) {
@@ -31,6 +47,7 @@ const apply = async ($: Api, name: string): Promise<string> => {
     }
     await $.store.delete(STORED)
     await $.theme.clear()
+    await announce($, DEFAULT)
 
     return 'Default: back to Claude’s own look.'
   }
@@ -41,6 +58,7 @@ const apply = async ($: Api, name: string): Promise<string> => {
   }
   const set = await $.theme.set({ colors: skinColors(skin).theme })
   await $.store.set(STORED, skin.name)
+  await announce($, skin.name)
 
   return set.isDrawn
     ? `Skin: ${skin.label}.`
@@ -49,14 +67,11 @@ const apply = async ($: Api, name: string): Promise<string> => {
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
-    await $.command.register({
-      name: 'skin',
-      description: 'Pick a skin for Claude, or Default to keep its own look',
-      argumentHint: '[skin]',
-    })
     const name = await stored($)
 
-    if (name !== DEFAULT) {
+    if (name === DEFAULT) {
+      await announce($, DEFAULT)
+    } else {
       await apply($, name)
     }
 
