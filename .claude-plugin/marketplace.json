@@ -14,6 +14,11 @@
       "name": "savvy-progress",
       "source": "./savvy-progress",
       "description": "Live progress of shell commands and subagents: a bar above the prompt and a details pane (/savvy-progress)."
+    },
+    {
+      "name": "skin-switcher",
+      "source": "./skin-switcher",
+      "description": "/skin picks a skin from hellosverre/claude-skins and recolours Claude; Default keeps Claude's own look."
     }
   ]
 }

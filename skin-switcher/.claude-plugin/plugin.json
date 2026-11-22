@@ -1,0 +1,9 @@
+{
+  "name": "skin-switcher",
+  "displayName": "Skin Switcher",
+  "version": "0.1.0",
+  "description": "/skin picks one of the skins from hellosverre/claude-skins and recolours Claude; Default keeps Claude's own look.",
+  "author": { "name": "Do Quan" },
+  "license": "MIT",
+  "keywords": ["skin", "theme", "colors", "mod"]
+}
