@@ -42,14 +42,14 @@ const announce = async ($: Api, current: string): Promise<void> => {
 // Puts a skin on, or takes this mod's off for `default`. Answers the line to show.
 const apply = async ($: Api, name: string): Promise<string> => {
   if (name === DEFAULT) {
-    if ((await stored($)) === DEFAULT) {
-      return 'Default: Claude keeps its own look.'
-    }
+    // Always cleared: the theme is the session's, the stored pick is every session's, so a
+    // pick of Default in another session leaves this one's skin standing with nothing stored.
+    // With no theme standing, the clear changes nothing on screen.
     await $.store.delete(STORED)
     await $.theme.clear()
     await announce($, DEFAULT)
 
-    return 'Default: back to Claude’s own look.'
+    return 'Default: Claude’s own look.'
   }
   const skin = SKINS.find(one => one.name === name)
 
