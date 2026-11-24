@@ -1,10 +1,20 @@
 {
   "name": "savvy-progress",
   "displayName": "Savvy Progress",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Live progress above the prompt and in a pane (/savvy-progress) for shell commands and subagents: what runs now, what finished or failed, elapsed time, steps and tokens.",
-  "author": { "name": "Do Quan" },
-  "keywords": ["progress", "bash", "shell", "agents", "subagents", "ui", "mod"],
+  "author": {
+    "name": "Do Quan"
+  },
+  "keywords": [
+    "progress",
+    "bash",
+    "shell",
+    "agents",
+    "subagents",
+    "ui",
+    "mod"
+  ],
   "types": "./types/index.d.ts",
   "userConfig": {
     "autoOpen": {
@@ -12,7 +22,20 @@
       "title": "Open the progress pane",
       "description": "agents: open the pane when a subagent starts (once per prompt); never: only with /savvy-progress",
       "default": "agents",
-      "options": ["agents", "never"]
+      "options": [
+        "agents",
+        "never"
+      ]
+    },
+    "summarize": {
+      "type": "string",
+      "title": "Summarize commands without a description",
+      "description": "model: ask Haiku for a few words on each shell command that came without a description (a small model call each, counted in the session's usage); off: name the programs it runs instead",
+      "default": "model",
+      "options": [
+        "model",
+        "off"
+      ]
     }
   }
 }
