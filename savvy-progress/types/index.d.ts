@@ -53,6 +53,8 @@ declare module 'claude-code' {
       now: number
       batchStart: number
       isHidden: boolean
+      /** Keys of the pane cards whose details are open. */
+      expanded: string[]
     }
   }
 }

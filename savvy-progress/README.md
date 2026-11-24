@@ -26,7 +26,7 @@ Một "đợt" bắt đầu khi bạn gửi prompt mà không còn gì đang ch�
 
 Mở bằng `/savvy-progress` hoặc nút `Details`. Có hai danh sách, mỗi dòng một việc.
 
-Trên desktop, editor và mobile, mỗi việc là một thẻ có icon nhân vật (linh vật cam, 9 trang phục) và huy hiệu trạng thái ở góc: xanh dương đang chạy, xanh lá xong, đỏ lỗi, vàng chạy nền, xám bị từ chối/dừng.
+Trên desktop, editor và mobile, mỗi việc là một thẻ gọn một dòng: icon nhân vật, tên ngắn (mô tả của lệnh hoặc của subagent; lệnh không có mô tả thì hiện dòng đầu của lệnh), trạng thái + thời gian, và mũi tên `▾`. Bấm `▾` để mở chi tiết ngay bên dưới (lệnh đầy đủ, chạy nền, agent nào chạy; với subagent là loại, model, số bước, tool, token), bấm `▴` để thu lại. Icon (linh vật cam, 9 trang phục) và huy hiệu trạng thái ở góc: xanh dương đang chạy, xanh lá xong, đỏ lỗi, vàng chạy nền, xám bị từ chối/dừng.
 
 ![Icons](docs/icons.png)
 

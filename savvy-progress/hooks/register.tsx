@@ -27,6 +27,8 @@ const now = atom({ plugin: 'savvy-progress', key: 'now' } as const, 0)
 // Runs started at or after this moment count in the band's bar.
 const batchStart = atom({ plugin: 'savvy-progress', key: 'batchStart' } as const, 0)
 const isHidden = atom({ plugin: 'savvy-progress', key: 'isHidden' } as const, false)
+// Pane cards whose details (the full command, the agent's numbers) are open.
+const expanded = atom({ plugin: 'savvy-progress', key: 'expanded' } as const, [] as string[])
 
 export const register: Register = (on, options) => {
   const autoOpen = (options as { autoOpen?: unknown } | undefined)?.autoOpen === 'never' ? 'never' : 'agents'
@@ -330,26 +332,40 @@ export const register: Register = (on, options) => {
     // Surfaces that draw Svg (desktop, editor, mobile) get pixel-art cards;
     // the terminal keeps one line of text per run.
     const Svg = e.surface !== 'terminal' && 'Svg' in table ? table.Svg : undefined
-    const [s, a, tick] = await Promise.all([read($, shells), read($, agents), read($, now)])
+    const [s, a, tick, open] = await Promise.all([read($, shells), read($, agents), read($, now), read($, expanded)])
     const t = Math.max(tick, await $.clock.now())
     const cols = Math.max(20, e.props.bodyColumns)
     const rows = Math.max(6, (e.viewport?.rows ?? 30) - 3)
     // Agents first, newest last; split the rows between the two lists.
-    const perItem = Svg ? 2 : 1
+    const perItem = 1
     const agentRows = Math.max(2, Math.min(a.length, Math.floor(rows / 2 / perItem)))
     const shellRows = Math.max(2, Math.floor((rows - agentRows * perItem - 4) / perItem))
+    const toggle = (key: string) =>
+      update($, expanded, keys => (keys.includes(key) ? keys.filter(k => k !== key) : [...keys, key].slice(-KEEP)))
 
-    const card = (key: string, svg: string, alt: string, title: string, sub: string, color: string | undefined, right: string) =>
-      Svg ? (
-        <Box key={key} flexDirection="row" gap={1} alignItems="center">
-          <Svg source={svg} alt={alt} width={28} height={28} />
-          <Box flexDirection="column" flexGrow={1}>
-            <Text bold>{cut(title, Math.max(20, cols - 14))}</Text>
-            <Text dimColor>{cut(sub, Math.max(20, cols - 14))}</Text>
+    // A card is one line: icon, short title, status and time, and an arrow
+    // that opens its details underneath.
+    const card = (key: string, svg: string, alt: string, title: string, details: string, color: string | undefined, right: string) => {
+      if (!Svg) return null
+      const isOpen = open.includes(key)
+      return (
+        <Box key={key} flexDirection="column">
+          <Box flexDirection="row" gap={1} alignItems="center">
+            <Svg source={svg} alt={alt} width={28} height={28} />
+            <Box flexDirection="column" flexGrow={1}>
+              <Text bold>{cut(title, Math.max(20, cols - 20))}</Text>
+            </Box>
+            <Text color={color}>{right}</Text>
+            <Button key={`toggle-${key}`} label={isOpen ? '▴' : '▾'} onPress={() => toggle(key)} />
           </Box>
-          <Text color={color}>{right}</Text>
+          {isOpen && (
+            <Box paddingLeft={5}>
+              <Text dimColor>{details}</Text>
+            </Box>
+          )}
         </Box>
-      ) : null
+      )
+    }
 
     return (
       <Box flexDirection="column">
@@ -381,8 +397,8 @@ export const register: Register = (on, options) => {
                 `shell-${r.id}`,
                 shellSvg(r.status),
                 `shell command, ${r.status}`,
-                cut(`$ ${firstLine(r.command)}`, Math.max(20, cols - 20)),
-                shellSub(r, a),
+                shellTitle(r),
+                shellDetails(r, a),
                 statusColor(r.status),
                 `${icon(r.status, t)} ${elapsed(r, t)}`,
               )
@@ -515,16 +531,20 @@ function agentSub(r: AgentRun): string {
   return parts.filter(Boolean).join(' · ')
 }
 
-function shellSub(r: ShellRun, list: readonly AgentRun[]): string {
-  const parts = [
-    r.description,
+function shellTitle(r: ShellRun): string {
+  return r.description || `$ ${firstLine(r.command)}`
+}
+
+// The full command, then what else is known of the run.
+function shellDetails(r: ShellRun, list: readonly AgentRun[]): string {
+  const meta = [
     r.status === 'background' && 'background',
     (r.status === 'denied' || r.status === 'stopped') && r.status,
     r.agentId && `by ${list.find(a => a.agentId === r.agentId)?.type ?? 'subagent'}`,
-  ]
-  return parts.filter(Boolean).join(' · ') || r.tool
+  ].filter(Boolean)
+  const command = r.command.length > 2000 ? `${r.command.slice(0, 2000)}…` : r.command
+  return `$ ${command}${meta.length ? `\n${meta.join(' · ')}` : ''}`
 }
-
 function shellLine(r: ShellRun, t: number, list: readonly AgentRun[]): string {
   const by = r.agentId ? ` · by ${list.find(a => a.agentId === r.agentId)?.type ?? 'subagent'}` : ''
   const what = r.description ? ` — ${r.description}` : ''
