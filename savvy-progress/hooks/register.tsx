@@ -15,7 +15,12 @@ const PANE = 'savvy-progress'
 const TITLE = 'Progress'
 const KEEP = 60 // runs kept per list
 const SHELL_TOOLS = new Set(['Bash', 'PowerShell'])
-const BG_LIMIT_MS = 2 * 60 * 60 * 1000 // a background shell cannot outlive 2h
+// How long a background shell can run: its own timeout, else Bash's default
+// of 30 minutes in the background (after up to 10 in the foreground when it
+// was moved there), plus a minute of slack. Past that it is not live.
+const BG_DEFAULT_MS = 30 * 60 * 1000
+const FG_MAX_MS = 10 * 60 * 1000
+const GRACE_MS = 60 * 1000
 const SPINNER = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
 
 // Change a shape tag when the fields of a run change: values stored by an
@@ -41,7 +46,10 @@ export const register: Register = (on, options) => {
       name: 'savvy-progress',
       description: 'Shell and subagent progress: open (default), close, clear, hide, show',
     })
+    let ticks = 0
     $.clock.every(1000, () => {
+      ticks += 1
+      if (ticks % 15 === 0) void quietly(() => reconcileAgents($))
       void quietly(() => tick($))
       if (summarize === 'model') void quietly(() => summarizeShells($))
     })
@@ -66,6 +74,20 @@ export const register: Register = (on, options) => {
     await $.ui.open({ id: PANE, title: TITLE })
     return { text: 'Progress pane opened.' }
   })
+
+  // When a turn ends, Claude Code lists the background work still in flight.
+  // A background shell missing from that list has ended without the mod
+  // hearing of it (Claude Code was closed or crashed, its notice went to a
+  // subagent): mark it stopped so it does not run on forever in the pane.
+  on('classic.Stop', async ($, e, next) => {
+    await quietly(() => reconcile($, e.background_tasks))
+    await quietly(() => reconcileAgents($))
+    return next(e)
+  }).catch(($, e, next) => next(e))
+  on('classic.SubagentStop', async ($, e, next) => {
+    await quietly(() => reconcile($, e.background_tasks))
+    return next(e)
+  }).catch(($, e, next) => next(e))
 
   // A prompt from the person starts a new batch once nothing runs. A
   // background task's notification settles the shell it reports on.
@@ -235,6 +257,10 @@ export const register: Register = (on, options) => {
         agentId: e.agentId,
         status: 'running',
         isBackground: args.run_in_background === true,
+        limitMs:
+          (args.run_in_background === true
+            ? typeof args.timeout === 'number' ? args.timeout : BG_DEFAULT_MS
+            : FG_MAX_MS + BG_DEFAULT_MS) + GRACE_MS,
         startedAt: await $.clock.now(),
       }
       await update($, shells, list => [...list, run].slice(-KEEP))
@@ -425,6 +451,16 @@ async function quietly(fn: () => Promise<unknown>): Promise<void> {
 async function tick($: Engine) {
   const t = await $.clock.now()
   const [s, a] = await Promise.all([read($, shells), read($, agents)])
+  // A background shell past its own timeout cannot still run.
+  if (s.some(r => r.status === 'background' && !isLive(r, t))) {
+    await update($, shells, l =>
+      l.map(r =>
+        r.status === 'background' && !isLive(r, t)
+          ? { ...r, status: 'stopped', note: 'past its timeout', endedAt: r.startedAt + (r.limitMs ?? 0) || t }
+          : r,
+      ),
+    )
+  }
   if (s.some(r => isLive(r, t)) || a.some(r => isLive(r, t))) {
     await update($, now, () => t)
   }
@@ -432,7 +468,9 @@ async function tick($: Engine) {
 
 function isLive(r: ShellRun | AgentRun, t: number): boolean {
   if (r.status === 'running' || r.status === 'starting') return true
-  return r.status === 'background' && t - r.startedAt < BG_LIMIT_MS
+  if (r.status !== 'background') return false
+  const limit = 'limitMs' in r && r.limitMs ? r.limitMs : FG_MAX_MS + BG_DEFAULT_MS + GRACE_MS
+  return t - r.startedAt < limit
 }
 
 async function clearFinished($: Engine) {
@@ -496,6 +534,56 @@ async function settleTasks($: Engine, text: string, t: number) {
     const status: ShellStatus = /complet|success|done/i.test(word) ? 'done' : /kill|stop|cancel/i.test(word) ? 'stopped' : 'failed'
     await settleShell($, r => r.taskId === taskId && r.status === 'background', status, t)
   }
+}
+
+// Settles every background shell the in-flight list no longer holds. An
+// absent list (an older Claude Code) settles nothing.
+async function reconcile(
+  $: Engine,
+  tasks: ReadonlyArray<{ id: string; type: string; command?: string }> | undefined,
+) {
+  if (!Array.isArray(tasks)) return
+  const ids = new Set(tasks.map(task => task.id))
+  const commands = tasks.flatMap(task => (task.command ? [task.command.replace(/\.\.\. \[\+\d+ chars\]$/, '')] : []))
+  const alive = (r: ShellRun) =>
+    (r.taskId !== undefined && ids.has(r.taskId)) || commands.some(c => c.length > 0 && r.command.startsWith(c))
+  const list = await read($, shells)
+  if (!list.some(r => r.status === 'background' && !alive(r))) return
+  const t = await $.clock.now()
+  await update($, shells, l =>
+    l.map(r => (r.status === 'background' && !alive(r) ? { ...r, status: 'stopped', endedAt: t, note: 'no longer running' } : r)),
+  )
+}
+
+// Asks Claude Code where each subagent still marked running stands: one it
+// no longer lists, or lists as ended, was settled without the mod hearing
+// (Claude Code closed under it). Its own status word decides done or failed.
+async function reconcileAgents($: Engine) {
+  const list = await read($, agents)
+  const open = list.filter(r => r.status === 'running' || r.status === 'starting')
+  if (open.length === 0) return
+  const known = new Map((await $.agent.list()).map(info => [info.id, info.status]))
+  const verdict = (r: AgentRun): { status: AgentStatus; note?: string } | undefined => {
+    if (!r.agentId) return undefined
+    const status = known.get(r.agentId)
+    if (status === undefined) return { status: 'failed', note: 'no longer running' }
+    if (status === 'completed') return { status: 'done' }
+    if (status === 'failed') return { status: 'failed', note: 'failed' }
+    if (status === 'killed') return { status: 'failed', note: 'stopped' }
+    return undefined
+  }
+  const ends = new Map(open.flatMap(r => {
+    const v = verdict(r)
+    return v ? [[r.id, v] as const] : []
+  }))
+  if (ends.size === 0) return
+  const t = await $.clock.now()
+  await update($, agents, l =>
+    l.map(r => {
+      const v = ends.get(r.id)
+      return v && (r.status === 'running' || r.status === 'starting') ? { ...r, ...v, endedAt: t, current: undefined } : r
+    }),
+  )
 }
 
 // ---- text -------------------------------------------------------------------
@@ -611,7 +699,7 @@ async function summarizeShells($: Engine) {
 function shellDetails(r: ShellRun, list: readonly AgentRun[]): string {
   const meta = [
     r.status === 'background' && 'background',
-    (r.status === 'denied' || r.status === 'stopped') && r.status,
+    (r.status === 'denied' || r.status === 'stopped') && (r.note ? `${r.status}: ${r.note}` : r.status),
     r.agentId && `by ${list.find(a => a.agentId === r.agentId)?.type ?? 'subagent'}`,
   ].filter(Boolean)
   const command = r.command.length > 2000 ? `${r.command.slice(0, 2000)}…` : r.command

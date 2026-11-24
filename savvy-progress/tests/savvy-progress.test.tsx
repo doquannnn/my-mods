@@ -24,6 +24,8 @@ const PANE = {
 
 // Hooks registered here sit beneath the mod and stand for the engine.
 let clock = 1_000_000
+// What $.agent.list() answers: the test's subagent a1, running.
+let listed: unknown[] = [{ id: 'a1', type: 'Explore', description: 'Find auth code', status: 'running' }]
 
 function engine(on: any, shell: () => unknown, ownClock = true) {
   if (ownClock) {
@@ -33,7 +35,7 @@ function engine(on: any, shell: () => unknown, ownClock = true) {
   on('session.start', (_: unknown, e: { cwd: string }) => ({ cwd: e.cwd }))
   on('command.register', () => ({ value: { command: 'savvy-progress' } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
-  on('agent.list', () => ({ value: [] }))
+  on('agent.list', () => ({ value: listed }))
   on('tool.call', () => shell())
   on('agent.spawn', () => ({ model: 'claude-haiku-5-5', agentId: 'a1' }))
   on('turn.complete', () => ({ text: '' }))
@@ -194,6 +196,57 @@ test('the quick summary names the programs and the folder', () => {
   expect(quickSummary('FOO=1 sudo python3 -m pytest -q tests/')).toBe('python3 pytest')
   expect(quickSummary("for i in 1 2; do find /usr -name '*.py' | wc -l; done")).toBe('find, wc')
   expect(quickSummary('cd app')).toBe('Go to app')
+})
+
+test('a background shell that is no longer in flight stops showing as running', async ($, on) => {
+  let answer: unknown = ok
+  engine(on, () => answer)
+  on('classic.Stop', () => ({}))
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true } as any)
+  answer = { result: { stdout: '', stderr: '', interrupted: false, backgroundTaskId: 'gone' } }
+  await $.tool.call({ tool: 'Bash', command: 'sleep 600', description: 'Wait for render loop', run_in_background: true } as any)
+  answer = { result: { stdout: '', stderr: '', interrupted: false, backgroundTaskId: 'alive' } }
+  await $.tool.call({ tool: 'Bash', command: 'npm run dev', description: 'Serve the app', run_in_background: true } as any)
+
+  // Claude Code was closed: only one task is still in flight at the turn's end.
+  await $.classic.Stop({ stop_hook_active: false, background_tasks: [{ id: 'alive', type: 'shell', status: 'running', description: 'Serve the app' }] } as any)
+
+  const pane = await $.ui.mount({ ...PANE, surface: 'desktop' } as any)
+  expect(await pane.findAll({ type: 'Text', text: /^◌ / })).toHaveLength(1)
+  expect(await pane.find({ type: 'Text', text: /^– / })).toBeDefined()
+  await openAll(pane)
+  expect(await pane.find({ type: 'Text', text: /stopped: no longer running/ })).toBeDefined()
+  await pane.unmount()
+})
+
+test('a subagent lost when Claude Code closed stops showing as running', async ($, on) => {
+  engine(on, () => ok)
+  on('classic.Stop', () => ({}))
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true } as any)
+  await $.agent.spawn({ prompt: 'x', description: 'Rebuild island', subagentType: 'general-purpose' } as any)
+  // Claude Code restarted: it no longer lists the subagent.
+  const before = listed
+  listed = []
+  await $.classic.Stop({ stop_hook_active: false, background_tasks: [] } as any)
+  listed = before
+  const pane = await $.ui.mount({ ...PANE, surface: 'desktop' } as any)
+  expect(await pane.find({ type: 'Text', text: /^✗ / })).toBeDefined()
+  await pane.unmount()
+})
+
+test('a background shell past its own timeout is not live', async ($, on) => {
+  const time = mock.clock(on)
+  let answer: unknown = ok
+  engine(on, () => answer, false)
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true } as any)
+  answer = { result: { stdout: '', stderr: '', interrupted: false, backgroundTaskId: 'b1' } }
+  await $.tool.call({ tool: 'Bash', command: 'sleep 100', description: 'Wait a bit', run_in_background: true, timeout: 60_000 } as any)
+  await time.advance(2 * 60_000 + 1000)
+  const pane = await $.ui.mount({ ...PANE, surface: 'desktop' } as any)
+  expect(await pane.find({ type: 'Text', text: /^◌ / })).toBeUndefined()
+  await openAll(pane)
+  expect(await pane.find({ type: 'Text', text: /stopped: past its timeout/ })).toBeDefined()
+  await pane.unmount()
 })
 
 test('the band stays out of the way until something runs', async ($, on) => {

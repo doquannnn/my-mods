@@ -15,6 +15,10 @@ export type ShellRun = {
   agentId?: string
   status: ShellStatus
   isBackground: boolean
+  /** How long it can run at most (its own timeout), after which it is not live. */
+  limitMs?: number
+  /** Why it ended, when the mod saw it end some other way than its result. */
+  note?: string
   /** Background task id, when the command went to the background. */
   taskId?: string
   startedAt: number
