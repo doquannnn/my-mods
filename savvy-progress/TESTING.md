@@ -2,6 +2,36 @@
 
 Những điểm test tự động không kiểm chứng được, cần chạy trên Claude Code thật (app desktop) trước khi merge.
 
+## Cài bản đang thử từ GitHub (chưa merge)
+
+`beta/marketplace.json` là marketplace `my-mods-beta`. Nó cài `savvy-progress` thẳng từ nhánh `claude/wizardly-mendel-7ljcm2` trên GitHub (nguồn `git-subdir` với `ref`), nên không cần pull code về máy.
+
+1. Tắt bản ổn định (trùng tên):
+   ```bash
+   claude plugin disable savvy-progress@my-mods
+   ```
+2. Thêm marketplace beta và cài:
+   ```bash
+   claude plugin marketplace add https://raw.githubusercontent.com/doquannnn/my-mods/claude/wizardly-mendel-7ljcm2/beta/marketplace.json
+   ```
+   ```bash
+   claude plugin install savvy-progress@my-mods-beta
+   ```
+3. Mở phiên mới. Khi nhánh có commit mới, lấy bản mới nhất:
+   ```bash
+   claude plugin marketplace update my-mods-beta
+   ```
+   ```bash
+   claude plugin update savvy-progress@my-mods-beta
+   ```
+4. Thử xong, quay về bản ổn định:
+   ```bash
+   claude plugin uninstall savvy-progress@my-mods-beta
+   ```
+   ```bash
+   claude plugin enable savvy-progress@my-mods
+   ```
+
 ## 0.6.1: lệnh nền và subagent bị bỏ dở
 
 Bug: lệnh nền "Wait for loop render completion" (do subagent `general-purpose` chạy) vẫn hiện đang chạy sau khi Claude bị tắt vì thiếu RAM và mở lại.
