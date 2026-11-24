@@ -24,9 +24,26 @@ Một "đợt" bắt đầu khi bạn gửi prompt mà không còn gì đang ch�
 
 ### Pane `Progress`
 
-Mở bằng `/savvy-progress` hoặc nút `Details`. Có hai danh sách, mỗi dòng một việc.
+Mở bằng `/savvy-progress` hoặc nút `Details`.
 
-Trên desktop, editor và mobile, mỗi việc là một thẻ gọn một dòng: icon nhân vật, tên ngắn (mô tả của lệnh hoặc của subagent; lệnh không có mô tả thì hiện dòng đầu của lệnh), trạng thái + thời gian, và mũi tên `▾`. Lệnh không kèm mô tả thì hiện ngay một tóm tắt nhanh suy ra từ lệnh (`git ls-files, grep, head in Personal Assistant`), rồi được thay bằng câu tóm tắt của Haiku (`Inspect project folder and tools`) sau khoảng một giây. Bấm `▾` để mở chi tiết ngay bên dưới (lệnh đầy đủ, chạy nền, agent nào chạy; với subagent là loại, model, số bước, tool, token), bấm `▴` để thu lại. Icon (linh vật cam, 9 trang phục) và huy hiệu trạng thái ở góc: xanh dương đang chạy, xanh lá xong, đỏ lỗi, vàng chạy nền, xám bị từ chối/dừng.
+Trên desktop, editor và mobile, pane xếp theo nhóm giống danh sách Background tasks của Claude Code:
+
+```
+Running 1
+  [icon] Whiteboard explainer from short prompt ›          21m 06s
+    ⌄ 5 tasks, 4 running
+        › Render full video frames in background            11m 32s  ■
+        › Wait for the render to finish                     10m 38s  ■
+        › 1 finished
+› Finished 5
+```
+
+- Mỗi subagent là một nhóm; các lệnh shell nó chạy nằm dưới nó. Lệnh của cuộc hội thoại chính gom vào nhóm `Main conversation`.
+- Nhóm còn ở **Running** khi subagent còn chạy hoặc còn lệnh của nó đang chạy (kể cả subagent đã trả lời xong mà lệnh nền vẫn chạy). Còn lại ở **Finished**, mặc định gập.
+- Bấm tên nhóm (`›`) để xem loại, model, số bước, tool, token. Bấm `N tasks, M running` để gập/mở danh sách lệnh; lệnh đã xong nằm trong `K finished`, mặc định gập. Bấm một lệnh để xem lệnh đầy đủ.
+- Nút `■` cạnh lệnh chạy nền dừng nó (như `TaskStop`).
+
+Tên lệnh là mô tả của lệnh; lệnh không kèm mô tả thì hiện ngay một tóm tắt nhanh suy ra từ lệnh (`git ls-files, grep, head in Personal Assistant`), rồi được thay bằng câu tóm tắt của Haiku (`Inspect project folder and tools`) sau khoảng một giây. Icon (linh vật cam, 9 trang phục) và huy hiệu trạng thái ở góc: xanh dương đang chạy, xanh lá xong, đỏ lỗi, vàng chạy nền, xám bị từ chối/dừng.
 
 ![Icons](docs/icons.png)
 

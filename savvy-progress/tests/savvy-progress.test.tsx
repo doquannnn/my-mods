@@ -42,10 +42,16 @@ function engine(on: any, shell: () => unknown, ownClock = true) {
   on('prompt.submit', (_: unknown, e: unknown) => e)
 }
 
-// Opens every pane card's details, as a person pressing each arrow.
+// Opens every closed part of the pane, as a person pressing each arrow:
+// on the terminal the ▾ of a line, on the desktop the › of a row.
 async function openAll(ui: any) {
   for (const b of await ui.findAll({ type: 'Button', text: '▾' })) {
     await ui.press({ key: b.key })
+  }
+  for (let i = 0; i < 20; i++) {
+    const closed = await ui.find({ type: 'Button', text: /^›|›$/ })
+    if (!closed) return
+    await ui.press({ key: closed.key })
   }
 }
 
@@ -75,17 +81,23 @@ for (const surface of ['terminal', 'desktop'] as const) {
       expect(await pane.find({ type: 'Text', text: /✗ \$ npm run lint/ })).toBeDefined()
       expect(await pane.find({ type: 'Text', text: /◌ \$ npm run dev .*bg/ })).toBeDefined()
     } else {
-      expect(await pane.findAll({ type: 'Svg' } as any)).toHaveLength(3)
-      // Collapsed: the description alone, the command hidden.
-      expect(await pane.find({ type: 'Text', text: /^Run tests$/ })).toBeDefined()
+      // One group, the main conversation, still running for its background command.
+      expect(await pane.findAll({ type: 'Svg' } as any)).toHaveLength(1)
+      expect(await pane.find({ type: 'Button', text: 'Running 1' })).toBeDefined()
+      expect(await pane.find({ type: 'Button', text: /^⌄ 3 tasks, 1 running$/ })).toBeDefined()
+      expect(await pane.find({ type: 'Button', text: /^› npm run dev$/ })).toBeDefined()
+      expect(await pane.find({ type: 'Button', text: '■' })).toBeDefined()
+      // The two finished ones are folded away, the commands hidden.
+      expect(await pane.find({ type: 'Button', text: /^› 2 finished$/ })).toBeDefined()
+      expect(await pane.find({ type: 'Button', text: /Run tests/ })).toBeUndefined()
       expect(await pane.find({ type: 'Text', text: /npm test/ })).toBeUndefined()
-      expect(await pane.find({ type: 'Text', text: /^npm run lint$/ })).toBeDefined()
       await openAll(pane)
+      expect(await pane.find({ type: 'Button', text: /^⌄ Run tests$/ })).toBeDefined()
+      expect(await pane.find({ type: 'Button', text: /^⌄ npm run lint$/ })).toBeDefined()
       expect(await pane.find({ type: 'Text', text: /^\$ npm test$/ })).toBeDefined()
       expect(await pane.find({ type: 'Text', text: /^\$ npm run dev\nbackground$/ })).toBeDefined()
-      expect(await pane.findAll({ type: 'Button', text: '▴' })).toHaveLength(3)
       expect(await pane.find({ type: 'Text', text: /^✗ / })).toBeDefined()
-      expect(await pane.find({ type: 'Text', text: /^◌ / })).toBeDefined()
+      expect(await pane.find({ type: 'Text', text: /^✓ / })).toBeDefined()
     }
     await pane.unmount()
 
@@ -98,7 +110,8 @@ for (const surface of ['terminal', 'desktop'] as const) {
     if (surface === 'terminal') {
       expect(await after.find({ type: 'Text', text: /✓ \$ npm run dev/ })).toBeDefined()
     } else {
-      expect(await after.find({ type: 'Text', text: /^◌ / })).toBeUndefined()
+      expect(await after.find({ type: 'Button', text: '■' })).toBeUndefined()
+      expect(await after.find({ type: 'Button', text: /^› Finished 1$/ })).toBeDefined()
     }
     await after.unmount()
   })
@@ -116,13 +129,14 @@ for (const surface of ['terminal', 'desktop'] as const) {
       expect(await pane.find({ type: 'Text', text: /Explore "Find auth code".*2 tools.*\$ git log -1/ })).toBeDefined()
       expect(await pane.find({ type: 'Text', text: /\$ git log -1 · .* by Explore/ })).toBeDefined()
     } else {
-      expect(await pane.find({ type: 'Text', text: /^Find auth code$/ })).toBeDefined()
+      expect(await pane.find({ type: 'Button', text: /^Find auth code ›$/ })).toBeDefined()
       expect(await pane.find({ type: 'Text', text: /^Explore · / })).toBeUndefined()
+      expect(await pane.find({ type: 'Button', text: /^⌄ 1 task$/ })).toBeDefined()
       await openAll(pane)
       expect(await pane.find({ type: 'Text', text: /^Explore · .*2 tools · \$ git log -1$/ })).toBeDefined()
       expect(await pane.find({ type: 'Text', text: /^\$ git log -1\nby Explore$/ })).toBeDefined()
-      const icons = await pane.findAll({ type: 'Svg' } as any)
-      expect(icons).toHaveLength(2)
+      // The command sits under its subagent: one group, one icon.
+      expect(await pane.findAll({ type: 'Svg' } as any)).toHaveLength(1)
     }
     await pane.unmount()
 
@@ -140,6 +154,8 @@ for (const surface of ['terminal', 'desktop'] as const) {
     if (surface === 'terminal') {
       expect(await done.find({ type: 'Text', text: /✓ Explore "Find auth code" · haiku-5-5 .*1\.5k tok/ })).toBeDefined()
     } else {
+      expect(await done.find({ type: 'Button', text: /^› Finished 1$/ })).toBeDefined()
+      await openAll(done)
       expect(await done.find({ type: 'Text', text: /^Explore · haiku-5-5 .*1\.5k tok$/ })).toBeDefined()
     }
     await done.unmount()
@@ -178,13 +194,15 @@ test('a command without a description gets a short summary', async ($, on) => {
   await $.tool.call({ tool: 'Bash', command: 'npm test', description: 'Run the tests' } as any)
 
   const before = await $.ui.mount({ ...PANE, surface: 'desktop' } as any)
-  expect(await before.find({ type: 'Text', text: /^git ls-files, head in Personal Assistant$/ })).toBeDefined()
+  await openAll(before)
+  expect(await before.find({ type: 'Button', text: /^⌄ git ls-files, head in Personal Assistant$/ })).toBeDefined()
   await before.unmount()
 
   await time.advance(1000)
   const after = await $.ui.mount({ ...PANE, surface: 'desktop' } as any)
-  expect(await after.find({ type: 'Text', text: /^Inspect project folder and tools$/ })).toBeDefined()
-  expect(await after.find({ type: 'Text', text: /^Run the tests$/ })).toBeDefined()
+  await openAll(after)
+  expect(await after.find({ type: 'Button', text: /^⌄ Inspect project folder and tools$/ })).toBeDefined()
+  expect(await after.find({ type: 'Button', text: /^⌄ Run the tests$/ })).toBeDefined()
   expect(asked).toEqual(['haiku/low']) // only the command without a description
   await after.unmount()
 })
@@ -212,9 +230,9 @@ test('a background shell that is no longer in flight stops showing as running', 
   await $.classic.Stop({ stop_hook_active: false, background_tasks: [{ id: 'alive', type: 'shell', status: 'running', description: 'Serve the app' }] } as any)
 
   const pane = await $.ui.mount({ ...PANE, surface: 'desktop' } as any)
-  expect(await pane.findAll({ type: 'Text', text: /^◌ / })).toHaveLength(1)
-  expect(await pane.find({ type: 'Text', text: /^– / })).toBeDefined()
+  expect(await pane.findAll({ type: 'Button', text: '■' })).toHaveLength(1)
   await openAll(pane)
+  expect(await pane.find({ type: 'Text', text: /^– / })).toBeDefined()
   expect(await pane.find({ type: 'Text', text: /stopped: no longer running/ })).toBeDefined()
   await pane.unmount()
 })
@@ -244,8 +262,9 @@ test('a moved-to-background wait lost when Claude Code was killed stops at the n
   await $.classic.Stop({ stop_hook_active: false, background_tasks: [] } as any)
 
   const pane = await $.ui.mount({ ...PANE, surface: 'desktop' } as any)
-  expect(await pane.find({ type: 'Text', text: /^◌ / })).toBeUndefined()
-  expect(await pane.find({ type: 'Text', text: /Shell\s+1 done/ })).toBeDefined()
+  expect(await pane.find({ type: 'Button', text: '■' })).toBeUndefined()
+  // Its subagent still runs; the wait under it is no longer counted running.
+  expect(await pane.find({ type: 'Button', text: /^⌄ 1 task$/ })).toBeDefined()
   await openAll(pane)
   expect(await pane.find({ type: 'Text', text: /stopped: no longer running/ })).toBeDefined()
   await pane.unmount()
@@ -259,13 +278,13 @@ test('a moved-to-background wait stops showing as running after 41 minutes even 
 
   await time.advance(40 * 60_000)
   let pane = await $.ui.mount({ ...PANE, surface: 'desktop' } as any)
-  expect(await pane.find({ type: 'Text', text: /^◌ / })).toBeDefined()
+  expect(await pane.find({ type: 'Button', text: '■' })).toBeDefined()
   await pane.unmount()
 
   // The screenshot's 43m54s.
   await time.advance(3 * 60_000 + 54_000)
   pane = await $.ui.mount({ ...PANE, surface: 'desktop' } as any)
-  expect(await pane.find({ type: 'Text', text: /^◌ / })).toBeUndefined()
+  expect(await pane.find({ type: 'Button', text: '■' })).toBeUndefined()
   await openAll(pane)
   expect(await pane.find({ type: 'Text', text: /stopped: past its timeout/ })).toBeDefined()
   await pane.unmount()
@@ -282,6 +301,8 @@ test('a subagent lost when Claude Code closed stops showing as running', async (
   await $.classic.Stop({ stop_hook_active: false, background_tasks: [] } as any)
   listed = before
   const pane = await $.ui.mount({ ...PANE, surface: 'desktop' } as any)
+  expect(await pane.find({ type: 'Button', text: /^› Finished 1$/ })).toBeDefined()
+  await openAll(pane)
   expect(await pane.find({ type: 'Text', text: /^✗ / })).toBeDefined()
   await pane.unmount()
 })
@@ -295,7 +316,7 @@ test('a background shell past its own timeout is not live', async ($, on) => {
   await $.tool.call({ tool: 'Bash', command: 'sleep 100', description: 'Wait a bit', run_in_background: true, timeout: 60_000 } as any)
   await time.advance(2 * 60_000 + 1000)
   const pane = await $.ui.mount({ ...PANE, surface: 'desktop' } as any)
-  expect(await pane.find({ type: 'Text', text: /^◌ / })).toBeUndefined()
+  expect(await pane.find({ type: 'Button', text: '■' })).toBeUndefined()
   await openAll(pane)
   expect(await pane.find({ type: 'Text', text: /stopped: past its timeout/ })).toBeDefined()
   await pane.unmount()
@@ -333,4 +354,39 @@ test('each subagent wears a costume by status, type and model', () => {
   expect(shellSvg('background')).toContain('sway 4s')
   expect(agentSvg('claude-opus-5-5', 'Plan', 'running')).toContain('prefers-reduced-motion')
   expect(agentSvg('claude-opus-5-5', 'Plan', 'done')).not.toContain('@keyframes')
+})
+
+test('a subagent whose background commands still run stays under Running, as the task list does', async ($, on) => {
+  let answer: unknown = ok
+  let stopped = ''
+  on('tool.call', { tool: 'TaskStop' }, (_: unknown, e: any) => {
+    stopped = e.task_id
+    return { result: { message: 'stopped' } }
+  })
+  engine(on, () => answer)
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true } as any)
+  await $.agent.spawn({ prompt: 'x', description: 'Whiteboard explainer from short prompt', subagentType: 'general-purpose' } as any)
+  await $.tool.call({ tool: 'Bash', command: 'python3 -c 1', description: 'Check scipy and TTS availability', agentId: 'a1' } as any)
+  for (const [i, d] of ['Render full video frames in background', 'Wait for the render to finish', 'Block until render completes'].entries()) {
+    answer = { result: { stdout: '', stderr: '', interrupted: false, backgroundTaskId: `b${i}` } }
+    await $.tool.call({ tool: 'Bash', command: `sleep ${i}`, description: d, run_in_background: true, agentId: 'a1' } as any)
+  }
+  await $.turn.complete({ reason: 'answer', answer: 'ok', durationMs: 5, isAborted: false, turnId: 't', agentId: 'a1' } as any)
+
+  const pane = await $.ui.mount({ ...PANE, surface: 'desktop' } as any)
+  expect(await pane.find({ type: 'Button', text: 'Running 1' })).toBeDefined()
+  expect(await pane.find({ type: 'Button', text: /^Whiteboard explainer from short prompt ›$/ })).toBeDefined()
+  expect(await pane.find({ type: 'Button', text: /^⌄ 4 tasks, 3 running$/ })).toBeDefined()
+  expect(await pane.find({ type: 'Button', text: /^› Render full video frames in background$/ })).toBeDefined()
+  expect(await pane.find({ type: 'Button', text: /^› 1 finished$/ })).toBeDefined()
+  expect(await pane.find({ type: 'Button', text: /Check scipy/ })).toBeUndefined()
+  expect(await pane.findAll({ type: 'Button', text: '■' })).toHaveLength(3)
+
+  // The square stops that command, as TaskStop would.
+  await pane.press({ key: (await pane.find({ type: 'Button', text: '■' }))!.key! })
+  expect(stopped).toBe('b0')
+  await pane.unmount()
+  const after = await $.ui.mount({ ...PANE, surface: 'desktop' } as any)
+  expect(await after.find({ type: 'Button', text: /^⌄ 4 tasks, 2 running$/ })).toBeDefined()
+  await after.unmount()
 })

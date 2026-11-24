@@ -363,38 +363,13 @@ export const register: Register = (on, options) => {
     const [s, a, tick, open] = await Promise.all([read($, shells), read($, agents), read($, now), read($, expanded)])
     const t = Math.max(tick, await $.clock.now())
     const cols = Math.max(20, e.props.bodyColumns)
-    const rows = Math.max(6, (e.viewport?.rows ?? 30) - 3)
-    // Agents first, newest last; split the rows between the two lists.
-    const perItem = 1
-    const agentRows = Math.max(2, Math.min(a.length, Math.floor(rows / 2 / perItem)))
-    const shellRows = Math.max(2, Math.floor((rows - agentRows * perItem - 4) / perItem))
-    const toggle = (key: string) =>
-      update($, expanded, keys => (keys.includes(key) ? keys.filter(k => k !== key) : [...keys, key].slice(-KEEP)))
-
-    // A card is one line: icon, short title, status and time, and an arrow
-    // that opens its details underneath.
-    const card = (key: string, svg: string, alt: string, title: string, details: string, color: string | undefined, right: string) => {
-      if (!Svg) return null
-      const isOpen = open.includes(key)
-      return (
-        <Box key={key} flexDirection="column">
-          <Box flexDirection="row" gap={1} alignItems="center">
-            <Svg source={svg} alt={alt} width={28} height={28} />
-            <Box flexDirection="column" flexGrow={1}>
-              <Text bold>{cut(title, Math.max(20, cols - 20))}</Text>
-            </Box>
-            <Text color={color}>{right}</Text>
-            <Button key={`toggle-${key}`} label={isOpen ? '▴' : '▾'} onPress={() => toggle(key)} />
-          </Box>
-          {isOpen && (
-            <Box paddingLeft={5}>
-              <Text dimColor>{details}</Text>
-            </Box>
-          )}
-        </Box>
-      )
+    if (Svg) {
+      return groupedPane($, { Box, Text, Button, Svg }, s, a, t, open, cols)
     }
-
+    // The terminal: one line of text per run, agents first, newest last.
+    const rows = Math.max(6, (e.viewport?.rows ?? 30) - 3)
+    const agentRows = Math.max(2, Math.min(a.length, Math.floor(rows / 2)))
+    const shellRows = Math.max(2, rows - agentRows - 4)
     return (
       <Box flexDirection="column">
         <Box flexDirection="row">
@@ -404,36 +379,196 @@ export const register: Register = (on, options) => {
         </Box>
         <Text bold>{`Agents  ${counts('', a, t).trim()}`}</Text>
         {a.length === 0 && <Text dimColor>  No subagents yet.</Text>}
-        {a.slice(-agentRows).map(r =>
-          Svg
-            ? card(
-                `agent-${r.id}`,
-                agentSvg(r.model, r.type, r.status),
-                `${r.type} subagent, ${r.status}`,
-                `${r.parentAgentId ? '↳ ' : ''}${r.description}`,
-                agentSub(r),
-                statusColor(r.status),
-                `${icon(r.status, t)} ${elapsed(r, t)}`,
-              )
-            : <Text color={statusColor(r.status)}>{cut(agentLine(r, t), cols)}</Text>,
-        )}
+        {a.slice(-agentRows).map(r => <Text color={statusColor(r.status)}>{cut(agentLine(r, t), cols)}</Text>)}
         <Text bold>{`Shell  ${counts('', s, t).trim()}`}</Text>
         {s.length === 0 && <Text dimColor>  No shell commands yet.</Text>}
-        {s.slice(-shellRows).map(r =>
-          Svg
-            ? card(
-                `shell-${r.id}`,
-                shellSvg(r.status),
-                `shell command, ${r.status}`,
-                shellTitle(r),
-                shellDetails(r, a),
-                statusColor(r.status),
-                `${icon(r.status, t)} ${elapsed(r, t)}`,
-              )
-            : <Text color={statusColor(r.status)}>{cut(shellLine(r, t, a), cols)}</Text>,
+        {s.slice(-shellRows).map(r => <Text color={statusColor(r.status)}>{cut(shellLine(r, t, a), cols)}</Text>)}
+      </Box>
+    )
+  })
+}
+
+// ---- the grouped pane (surfaces that draw Svg) -----------------------------
+//
+// As Claude Code's own background-task list: "Running N" holds each subagent
+// still at work, or whose shell commands still run, as a header (its icon,
+// description and time; pressed, its numbers), then "N tasks, M running"
+// opening its live commands, each pressed for its full command, and a
+// collapsed "K finished" below them. "Finished N" holds the rest, collapsed.
+// Commands from the main conversation form a group of their own.
+
+type Group = {
+  key: string
+  agent?: AgentRun
+  title: string
+  shells: ShellRun[]
+  live: boolean
+  startedAt: number
+  endedAt?: number
+}
+
+export function groupRuns(s: readonly ShellRun[], a: readonly AgentRun[], t: number): Group[] {
+  const groups: Group[] = []
+  const byAgent = new Map<string, Group>()
+  for (const r of a) {
+    const g: Group = { key: `agent-${r.id}`, agent: r, title: r.description, shells: [], live: false, startedAt: r.startedAt }
+    groups.push(g)
+    if (r.agentId) byAgent.set(r.agentId, g)
+  }
+  let main: Group | undefined
+  for (const r of s) {
+    let g = r.agentId ? byAgent.get(r.agentId) : undefined
+    if (!g) {
+      if (!main) {
+        main = { key: 'main', title: 'Main conversation', shells: [], live: false, startedAt: r.startedAt }
+        groups.push(main)
+      }
+      g = main
+    }
+    g.shells.push(r)
+  }
+  for (const g of groups) {
+    const runs: Array<ShellRun | AgentRun> = [...(g.agent ? [g.agent] : []), ...g.shells]
+    g.live = runs.some(r => isLive(r, t))
+    g.startedAt = Math.min(...runs.map(r => r.startedAt))
+    g.endedAt = g.live ? undefined : Math.max(...runs.map(r => r.endedAt ?? r.startedAt))
+  }
+  return groups.sort((x, y) => x.startedAt - y.startedAt)
+}
+
+type Elements = { Box: any; Text: any; Button: any; Svg: any }
+
+function groupedPane(
+  $: Engine,
+  { Box, Text, Button, Svg }: Elements,
+  s: readonly ShellRun[],
+  a: readonly AgentRun[],
+  t: number,
+  open: readonly string[],
+  cols: number,
+) {
+  // A key in `expanded` flips its part from how it starts: running parts
+  // start open, finished ones closed, details closed.
+  const isOpen = (key: string, byDefault: boolean) => byDefault !== open.includes(key)
+  const toggle = (key: string) =>
+    update($, expanded, keys => (keys.includes(key) ? keys.filter(k => k !== key) : [...keys, key].slice(-KEEP)))
+  const chevron = (isOpenNow: boolean) => (isOpenNow ? '⌄' : '›')
+  const width = Math.max(20, cols - 22)
+
+  const shellRow = (r: ShellRun) => {
+    const key = `shell-${r.id}`
+    const shown = isOpen(key, false)
+    const live = isLive(r, t)
+    return (
+      <Box key={key} flexDirection="column" paddingLeft={4}>
+        <Box flexDirection="row" alignItems="center" gap={1}>
+          <Button key={`toggle-${key}`} plain label={`${chevron(shown)} ${cut(shellTitle(r), width - 4)}`} onPress={() => toggle(key)} />
+          <Box flexGrow={1} />
+          <Text color={statusColor(r.status)}>{live ? elapsed(r, t) : `${icon(r.status, t)} ${elapsed(r, t)}`}</Text>
+          {r.status === 'background' && r.taskId && (
+            <Button key={`stop-${key}`} label="■" onPress={() => stopShell($, r)} />
+          )}
+        </Box>
+        {shown && (
+          <Box paddingLeft={2}>
+            <Text dimColor>{shellDetails(r, a)}</Text>
+          </Box>
         )}
       </Box>
     )
+  }
+
+  const groupCard = (g: Group) => {
+    const r = g.agent
+    const status: AgentStatus | ShellStatus = g.live ? 'running' : r?.status ?? (g.shells.some(x => x.status === 'failed') ? 'failed' : 'done')
+    const svg = r ? agentSvg(r.model, r.type, r.status) : shellSvg(status as ShellStatus)
+    const detailsKey = `about-${g.key}`
+    const tasksKey = `tasks-${g.key}`
+    const doneKey = `finished-${g.key}`
+    const live = g.shells.filter(x => isLive(x, t))
+    const finished = g.shells.filter(x => !isLive(x, t))
+    const showTasks = isOpen(tasksKey, g.live)
+    const span = { startedAt: g.startedAt, endedAt: g.endedAt }
+    return (
+      <Box key={g.key} flexDirection="column">
+        <Box flexDirection="row" alignItems="center" gap={1}>
+          <Svg source={svg} alt={r ? `${r.type} subagent, ${r.status}` : 'main conversation'} width={28} height={28} />
+          <Button key={`toggle-${detailsKey}`} plain label={`${cut(g.title, width - 4)} ${chevron(isOpen(detailsKey, false))}`} onPress={() => toggle(detailsKey)} />
+          <Box flexGrow={1} />
+          <Text color={statusColor(status)}>{g.live ? elapsed(span, t) : `${icon(status, t)} ${elapsed(span, t)}`}</Text>
+        </Box>
+        {isOpen(detailsKey, false) && (
+          <Box paddingLeft={5}>
+            <Text dimColor>{r ? agentSub(r) : 'Shell commands run by the main conversation'}</Text>
+          </Box>
+        )}
+        {g.shells.length > 0 && (
+          <Box flexDirection="column" paddingLeft={2}>
+            <Button
+              key={`toggle-${tasksKey}`}
+              plain
+              label={`${chevron(showTasks)} ${g.shells.length} ${g.shells.length === 1 ? 'task' : 'tasks'}${live.length ? `, ${live.length} running` : ''}`}
+              onPress={() => toggle(tasksKey)}
+            />
+            {showTasks && live.map(shellRow)}
+            {showTasks && finished.length > 0 && (
+              <Box flexDirection="column" paddingLeft={4}>
+                <Button
+                  key={`toggle-${doneKey}`}
+                  plain
+                  label={`${chevron(isOpen(doneKey, false))} ${finished.length} finished`}
+                  onPress={() => toggle(doneKey)}
+                />
+              </Box>
+            )}
+            {showTasks && isOpen(doneKey, false) && finished.map(x => <Box key={`f-${x.id}`} paddingLeft={2}>{shellRow(x)}</Box>)}
+          </Box>
+        )}
+      </Box>
+    )
+  }
+
+  const groups = groupRuns(s, a, t)
+  const running = groups.filter(g => g.live)
+  const done = groups.filter(g => !g.live)
+  const showRunning = isOpen('section-running', true)
+  const showDone = isOpen('section-finished', false)
+  return (
+    <Box flexDirection="column" gap={1}>
+      <Box flexDirection="row">
+        <Button key="clear" label="Clear finished" onPress={() => clearFinished($)} />
+        <Text> </Text>
+        <Button key="close" label="Close" onPress={() => $.ui.close({ id: PANE })} />
+      </Box>
+      {groups.length === 0 && <Text dimColor>No subagents or shell commands yet.</Text>}
+      {running.length > 0 && (
+        <Box flexDirection="column" gap={1}>
+          <Button key="toggle-section-running" plain label={`Running ${running.length}`} onPress={() => toggle('section-running')} />
+          {showRunning && running.map(groupCard)}
+        </Box>
+      )}
+      {done.length > 0 && (
+        <Box flexDirection="column" gap={1}>
+          <Button key="toggle-section-finished" plain label={`${chevron(showDone)} Finished ${done.length}`} onPress={() => toggle('section-finished')} />
+          {showDone && done.map(groupCard)}
+        </Box>
+      )}
+    </Box>
+  )
+}
+
+// Stops a background command from the pane, as the model would with TaskStop.
+async function stopShell($: Engine, r: ShellRun) {
+  if (!r.taskId) return
+  const taskId = r.taskId
+  await quietly(async () => {
+    const res = await $.tool.call({ tool: 'TaskStop', task_id: taskId } as any)
+    if ((res as { deny?: unknown }).deny === undefined) {
+      const t = await $.clock.now()
+      await update($, shells, list =>
+        list.map(x => (x.id === r.id && x.status === 'background' ? { ...x, status: 'stopped', note: 'stopped from the pane', endedAt: t } : x)),
+      )
+    }
   })
 }
 
