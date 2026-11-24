@@ -167,8 +167,8 @@ test('a command without a description gets a short summary', async ($, on) => {
   const time = mock.clock(on)
   engine(on, () => ok, false)
   const asked: string[] = []
-  on('model.complete', (_: unknown, e: { prompt: string; model: string }) => {
-    asked.push(e.model)
+  on('model.complete', (_: unknown, e: { prompt: string; model: string; effort?: string }) => {
+    asked.push(`${e.model}/${e.effort}`)
     return { value: { isAnswered: true, text: 'Inspect project folder and tools.', usage: {} } } as any
   })
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true } as any)
@@ -183,7 +183,7 @@ test('a command without a description gets a short summary', async ($, on) => {
   const after = await $.ui.mount({ ...PANE, surface: 'desktop' } as any)
   expect(await after.find({ type: 'Text', text: /^Inspect project folder and tools$/ })).toBeDefined()
   expect(await after.find({ type: 'Text', text: /^Run the tests$/ })).toBeDefined()
-  expect(asked).toEqual(['haiku']) // only the command without a description
+  expect(asked).toEqual(['haiku/low']) // only the command without a description
   await after.unmount()
 })
 

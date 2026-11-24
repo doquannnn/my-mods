@@ -76,7 +76,7 @@ Terminal không vẽ được `Svg`, nên ở terminal mỗi việc là một d�
 
 | Trường | Mặc định | Tác dụng |
 | :- | :- | :- |
-| `summarize` | `model` | Lệnh shell không có mô tả: `model` nhờ Haiku viết vài chữ tóm tắt (mỗi lệnh một lần gọi model rất nhỏ, tính vào usage của phiên); `off` chỉ dùng tóm tắt nhanh suy ra từ lệnh |
+| `summarize` | `model` | Lệnh shell không có mô tả: `model` nhờ Haiku viết vài chữ tóm tắt, với mức effort thấp nhất (`low`) và tối đa 30 token (mỗi lệnh một lần gọi model rất nhỏ, tính vào usage của phiên); `off` chỉ dùng tóm tắt nhanh suy ra từ lệnh |
 | `autoOpen` | `agents` | `agents`: tự mở pane khi một subagent bắt đầu (mỗi đợt một lần). `never`: chỉ mở bằng lệnh |
 
 ## Cách hoạt động

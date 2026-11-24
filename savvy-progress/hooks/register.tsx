@@ -590,7 +590,11 @@ async function summarizeShells($: Engine) {
   try {
     await update($, shells, l => l.map(r => (r.id === next.id ? { ...r, summaryState: 'pending' } : r)))
     const command = next.command.length > 1500 ? `${next.command.slice(0, 1500)} …` : next.command
-    const answer = await $.model.complete({ model: 'haiku', prompt: SUMMARY_PROMPT + command, maxTokens: 30 })
+    const answer = await $.model.complete(
+      // The lowest effort: a few words need no thinking. Dropped where the
+      // model takes no effort setting; given up after 15s.
+      { model: 'haiku', prompt: SUMMARY_PROMPT + command, maxTokens: 30, effort: 'low', timeoutMs: 15_000 },
+    )
     const words = answer.isAnswered ? firstLine(answer.text).replace(/^["'`]+|["'`.]+$/g, '').trim() : ''
     const summary = words && words.length <= 80 ? words : undefined
     await update($, shells, l =>
