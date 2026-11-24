@@ -32,8 +32,10 @@ Cách sửa (trong `hooks/register.tsx`):
 
 - [x] **Mã task có khớp không.** Giả định: `id` trong `background_tasks` trùng với `backgroundTaskId` mà Bash trả về. Dự phòng: so khớp theo nội dung lệnh. Nếu cả hai đều không khớp, một lệnh nền **còn sống** sẽ bị đánh dấu `stopped` nhầm khi lượt chat kết thúc.
   Đã thử trên Claude Code v2.1.330 (24/11/2026), bằng một plugin nhỏ ghi lại hai giá trị này trong một lượt `claude -p` chạy `sleep 90` nền: Bash trả `backgroundTaskId: "bs8q5axyt"`; khi lượt kết thúc, `background_tasks` có `{ id: "bs8q5axyt", type: "shell", status: "running", command: "sleep 90" }`. Lệnh xong thì danh sách rỗng. Mã khớp.
-- [ ] **Subagent nền không bị đánh dấu lỗi nhầm.** Giả định: `$.agent.list()` vẫn liệt kê subagent chạy nền với trạng thái `running`, `waiting` hoặc `idle` trong lúc nó chạy.
-- [ ] **Lệnh đang kẹt được dọn** sau khi cập nhật plugin và có một lượt chat kết thúc.
+- [x] **Subagent nền không bị đánh dấu lỗi nhầm.** Giả định: `$.agent.list()` vẫn liệt kê subagent chạy nền với trạng thái `running`, `waiting` hoặc `idle` trong lúc nó chạy.
+  Đã thử cùng cách: 2 subagent nền, mỗi cái chờ 40 giây. `agentId` khi spawn trùng `id` trong `$.agent.list()`. Danh sách báo `running` suốt từ giây 2 đến giây 44 (cả lúc lượt chat kết thúc), rồi `completed`. Không lúc nào subagent biến mất khi còn chạy.
+- [x] **Lệnh đang kẹt được dọn** sau khi Claude bị tắt ngang và có một lượt chat kết thúc.
+  Đã thử: một lượt chạy một lệnh nền và một subagent nền, rồi `kill -9` Claude. Trước khi tắt, `background_tasks` và `$.agent.list()` đều có hai thứ đó với `running`. Mở lại bằng `claude -p --resume`, hỏi một câu: khi lượt kết thúc cả hai danh sách đều rỗng, nên phần sửa đánh dấu lệnh `stopped: no longer running` và subagent `✗ no longer running` (khớp với test tự động). Chưa nhìn tận mắt trên pane.
 
 ### Cách thử
 
