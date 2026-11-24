@@ -97,7 +97,7 @@ Dữ liệu nằm trong `$.state` (tối đa 60 lệnh shell và 60 subagent g�
 
 ## Giới hạn đã biết
 
-- **Lệnh nền**: mod chỉ biết lệnh nền đã xong khi thông báo task của Claude Code đi qua `prompt.submit` và có dạng `<task-id>…</task-id>` … `<status>…</status>`. Nếu thông báo đi đường khác, lệnh vẫn hiện `◌` cho tới khi dùng `/savvy-progress clear`, hoặc hết 2 giờ (giới hạn tối đa của lệnh nền).
+- **Lệnh nền và subagent bị bỏ dở**: lệnh nền chỉ được đánh dấu xong khi thông báo task đi qua `prompt.submit`. Nếu Claude Code bị tắt (thiếu RAM, crash) hoặc thông báo đi tới subagent, mod tự dọn theo ba cách: (1) mỗi khi một lượt chat kết thúc, lệnh nền không còn trong danh sách tác vụ nền của Claude Code được đánh dấu `stopped: no longer running`; (2) lệnh nền quá thời gian `timeout` của chính nó (mặc định 30 phút) được đánh dấu `stopped: past its timeout`; (3) subagent còn "running" mà Claude Code không còn liệt kê, hoặc liệt kê là đã kết thúc, được cập nhật theo trạng thái đó (kiểm tra khi lượt chat kết thúc và mỗi 15 giây).
 - **Token** chỉ được cộng khi một lượt của subagent kết thúc, nên trong lúc chạy cột token có thể là 0. Mod không ước tính chi phí.
 - Mã thoát của lệnh shell không được hiển thị: Claude Code chỉ báo lỗi hay không.
 - API mod của Claude Code đang ở giai đoạn early access, viết và kiểm tra trên Claude Code 2.1.330. Có thể thay đổi giữa các phiên bản.
