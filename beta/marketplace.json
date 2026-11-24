@@ -1,0 +1,17 @@
+{
+  "name": "my-mods-beta",
+  "description": "Test builds of my-mods plugins, installed from a work branch before it is merged.",
+  "owner": { "name": "Do Quan" },
+  "plugins": [
+    {
+      "name": "savvy-progress",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/doquannnn/my-mods.git",
+        "path": "savvy-progress",
+        "ref": "claude/wizardly-mendel-7ljcm2"
+      },
+      "description": "savvy-progress from the claude/wizardly-mendel-7ljcm2 branch, for testing before merge."
+    }
+  ]
+}
