@@ -32,6 +32,7 @@ const expanded = atom({ plugin: 'savvy-progress', key: 'expanded' } as const, []
 
 export const register: Register = (on, options) => {
   const autoOpen = (options as { autoOpen?: unknown } | undefined)?.autoOpen === 'never' ? 'never' : 'agents'
+  const summarize = (options as { summarize?: unknown } | undefined)?.summarize === 'off' ? 'off' : 'model'
   let openedForBatch = -1
   let spawns = 0
 
@@ -42,6 +43,7 @@ export const register: Register = (on, options) => {
     })
     $.clock.every(1000, () => {
       void quietly(() => tick($))
+      if (summarize === 'model') void quietly(() => summarizeShells($))
     })
 
     return next(e)
@@ -229,7 +231,7 @@ export const register: Register = (on, options) => {
         id,
         tool,
         command: String(args.command ?? ''),
-        description: typeof args.description === 'string' ? args.description : undefined,
+        description: typeof args.description === 'string' && args.description.trim() ? args.description.trim() : undefined,
         agentId: e.agentId,
         status: 'running',
         isBackground: args.run_in_background === true,
@@ -532,7 +534,77 @@ function agentSub(r: AgentRun): string {
 }
 
 function shellTitle(r: ShellRun): string {
-  return r.description || `$ ${firstLine(r.command)}`
+  return r.description || r.summary || quickSummary(r.command)
+}
+
+// A summary read off the command itself, shown at once and until the model's
+// arrives: the programs it runs, and the folder it goes to.
+//   cd "/a/Personal Assistant" && git ls-files | grep -v x | head -300
+//   -> "git ls-files, grep, head in Personal Assistant"
+export function quickSummary(command: string): string {
+  const parts = command
+    .replace(/\\\n/g, ' ')
+    .split(/&&|\|\||;|\||\n/)
+    .map(p => p.trim())
+    .filter(Boolean)
+  let folder = ''
+  const programs: string[] = []
+  for (const part of parts) {
+    const words = part.split(/\s+/).filter(w => !/^[A-Za-z_][A-Za-z0-9_]*=/.test(w) && w !== 'sudo' && w !== 'time' && w !== 'env')
+    while (words.length && /^(do|then|else|elif|\{|\()$/.test(words[0] ?? '')) words.shift()
+    if (/^(for|while|until|if|case|done|fi|esac|\}|\))$/.test(words[0] ?? '')) continue
+    if (/^python3?$/.test(words[0] ?? '') && words[1] === '-m' && words[2]) words.splice(1, 2, words[2])
+    const head = (words[0] ?? '').replace(/^["'(]+|["')]+$/g, '')
+    if (!head) continue
+    if (head === 'cd' || head === 'pushd') {
+      const target = part.replace(/^\s*(cd|pushd)\s+/, '').replace(/^["']|["']$/g, '')
+      folder = target.split('/').filter(Boolean).pop() ?? ''
+      continue
+    }
+    const name = head.split('/').pop() ?? head
+    const sub = words[1] && /^[a-z][a-z-]+$/.test(words[1]) && /^(git|npm|pnpm|yarn|bun|cargo|go|docker|kubectl|pip|uv|gh|claude|flutter|dart|make|python3?|node)$/.test(name) && !/^-/.test(words[1]) && !/[./]/.test(words[1]) ? ` ${words[1]}` : ''
+    const script = sub === ' run' && words[2] && !/^-/.test(words[2]) ? ` ${words[2]}` : ''
+    const label = name + sub + script
+    if (!programs.includes(label)) programs.push(label)
+  }
+  if (programs.length === 0) return folder ? `Go to ${folder}` : `$ ${firstLine(command)}`
+  const shown = programs.length > 4 ? `${programs.slice(0, 4).join(', ')} …` : programs.join(', ')
+  return folder ? `${shown} in ${folder}` : shown
+}
+
+// Asks a small model for a few words on each command that came without a
+// description, a couple at a time, outside any tool call. The answer
+// replaces the quick summary; a failure keeps the quick one.
+const SUMMARY_PROMPT =
+  'Say what this shell command does in 3 to 7 plain English words, active voice, like ' +
+  '"Inspect project folder and tools" or "Run the unit tests". No quotes, no paths, no flags, ' +
+  'no ending punctuation. Answer with the words only.\n\nCommand:\n'
+let asking = 0
+
+async function summarizeShells($: Engine) {
+  if (asking >= 2) return
+  const list = await read($, shells)
+  const next = list.find(r => !r.description && !r.summaryState)
+  if (!next) return
+  asking += 1
+  try {
+    await update($, shells, l => l.map(r => (r.id === next.id ? { ...r, summaryState: 'pending' } : r)))
+    const command = next.command.length > 1500 ? `${next.command.slice(0, 1500)} …` : next.command
+    const answer = await $.model.complete(
+      // The lowest effort: a few words need no thinking. Dropped where the
+      // model takes no effort setting; given up after 15s.
+      { model: 'haiku', prompt: SUMMARY_PROMPT + command, maxTokens: 30, effort: 'low', timeoutMs: 15_000 },
+    )
+    const words = answer.isAnswered ? firstLine(answer.text).replace(/^["'`]+|["'`.]+$/g, '').trim() : ''
+    const summary = words && words.length <= 80 ? words : undefined
+    await update($, shells, l =>
+      l.map(r => (r.id === next.id ? { ...r, summary, summaryState: summary ? 'done' : 'failed' } : r)),
+    )
+  } catch {
+    await update($, shells, l => l.map(r => (r.id === next.id ? { ...r, summaryState: 'failed' } : r)))
+  } finally {
+    asking -= 1
+  }
 }
 
 // The full command, then what else is known of the run.

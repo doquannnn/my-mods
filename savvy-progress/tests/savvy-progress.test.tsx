@@ -1,4 +1,5 @@
-import { expect, test } from 'claude-code/testing'
+import { expect, mock, test } from 'claude-code/testing'
+import { quickSummary } from '../hooks/register'
 import { agentCharacter, agentSvg, isAnimated, shellSvg } from '../hooks/sprites'
 
 const BAND = {
@@ -24,9 +25,11 @@ const PANE = {
 // Hooks registered here sit beneath the mod and stand for the engine.
 let clock = 1_000_000
 
-function engine(on: any, shell: () => unknown) {
-  on('clock.now', () => ({ value: (clock += 1000) }))
-  on('clock.every', () => ({ value: undefined }))
+function engine(on: any, shell: () => unknown, ownClock = true) {
+  if (ownClock) {
+    on('clock.now', () => ({ value: (clock += 1000) }))
+    on('clock.every', () => ({ value: undefined }))
+  }
   on('session.start', (_: unknown, e: { cwd: string }) => ({ cwd: e.cwd }))
   on('command.register', () => ({ value: { command: 'savvy-progress' } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
@@ -74,7 +77,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
       // Collapsed: the description alone, the command hidden.
       expect(await pane.find({ type: 'Text', text: /^Run tests$/ })).toBeDefined()
       expect(await pane.find({ type: 'Text', text: /npm test/ })).toBeUndefined()
-      expect(await pane.find({ type: 'Text', text: /^\$ npm run lint$/ })).toBeDefined()
+      expect(await pane.find({ type: 'Text', text: /^npm run lint$/ })).toBeDefined()
       await openAll(pane)
       expect(await pane.find({ type: 'Text', text: /^\$ npm test$/ })).toBeDefined()
       expect(await pane.find({ type: 'Text', text: /^\$ npm run dev\nbackground$/ })).toBeDefined()
@@ -158,6 +161,39 @@ test('a subagent long shell command is shown short', async ($, on) => {
   pane = await $.ui.mount({ ...PANE, surface: 'desktop' } as any)
   expect(await pane.find({ type: 'Text', text: /· Scan the repo for links$/ })).toBeDefined()
   await pane.unmount()
+})
+
+test('a command without a description gets a short summary', async ($, on) => {
+  const time = mock.clock(on)
+  engine(on, () => ok, false)
+  const asked: string[] = []
+  on('model.complete', (_: unknown, e: { prompt: string; model: string; effort?: string }) => {
+    asked.push(`${e.model}/${e.effort}`)
+    return { value: { isAnswered: true, text: 'Inspect project folder and tools.', usage: {} } } as any
+  })
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true } as any)
+  await $.tool.call({ tool: 'Bash', command: 'cd "/home/me/Personal Assistant" && git ls-files | head -300' } as any)
+  await $.tool.call({ tool: 'Bash', command: 'npm test', description: 'Run the tests' } as any)
+
+  const before = await $.ui.mount({ ...PANE, surface: 'desktop' } as any)
+  expect(await before.find({ type: 'Text', text: /^git ls-files, head in Personal Assistant$/ })).toBeDefined()
+  await before.unmount()
+
+  await time.advance(1000)
+  const after = await $.ui.mount({ ...PANE, surface: 'desktop' } as any)
+  expect(await after.find({ type: 'Text', text: /^Inspect project folder and tools$/ })).toBeDefined()
+  expect(await after.find({ type: 'Text', text: /^Run the tests$/ })).toBeDefined()
+  expect(asked).toEqual(['haiku/low']) // only the command without a description
+  await after.unmount()
+})
+
+test('the quick summary names the programs and the folder', () => {
+  expect(quickSummary('cd "/a/Personal Assistant" && git ls-files | grep -v x | head -300 && git ls-files | wc -l'))
+    .toBe('git ls-files, grep, head, wc in Personal Assistant')
+  expect(quickSummary('npm run build')).toBe('npm run build')
+  expect(quickSummary('FOO=1 sudo python3 -m pytest -q tests/')).toBe('python3 pytest')
+  expect(quickSummary("for i in 1 2; do find /usr -name '*.py' | wc -l; done")).toBe('find, wc')
+  expect(quickSummary('cd app')).toBe('Go to app')
 })
 
 test('the band stays out of the way until something runs', async ($, on) => {

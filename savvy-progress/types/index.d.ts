@@ -7,6 +7,10 @@ export type ShellRun = {
   tool: string
   command: string
   description?: string
+  /** A short summary for a command that came without a description. */
+  summary?: string
+  /** Whether the model summary was asked for: pending, then done or failed. */
+  summaryState?: 'pending' | 'done' | 'failed'
   /** The subagent that ran it; absent for the main conversation. */
   agentId?: string
   status: ShellStatus

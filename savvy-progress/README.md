@@ -26,7 +26,7 @@ Một "đợt" bắt đầu khi bạn gửi prompt mà không còn gì đang ch�
 
 Mở bằng `/savvy-progress` hoặc nút `Details`. Có hai danh sách, mỗi dòng một việc.
 
-Trên desktop, editor và mobile, mỗi việc là một thẻ gọn một dòng: icon nhân vật, tên ngắn (mô tả của lệnh hoặc của subagent; lệnh không có mô tả thì hiện dòng đầu của lệnh), trạng thái + thời gian, và mũi tên `▾`. Bấm `▾` để mở chi tiết ngay bên dưới (lệnh đầy đủ, chạy nền, agent nào chạy; với subagent là loại, model, số bước, tool, token), bấm `▴` để thu lại. Icon (linh vật cam, 9 trang phục) và huy hiệu trạng thái ở góc: xanh dương đang chạy, xanh lá xong, đỏ lỗi, vàng chạy nền, xám bị từ chối/dừng.
+Trên desktop, editor và mobile, mỗi việc là một thẻ gọn một dòng: icon nhân vật, tên ngắn (mô tả của lệnh hoặc của subagent; lệnh không có mô tả thì hiện dòng đầu của lệnh), trạng thái + thời gian, và mũi tên `▾`. Lệnh không kèm mô tả thì hiện ngay một tóm tắt nhanh suy ra từ lệnh (`git ls-files, grep, head in Personal Assistant`), rồi được thay bằng câu tóm tắt của Haiku (`Inspect project folder and tools`) sau khoảng một giây. Bấm `▾` để mở chi tiết ngay bên dưới (lệnh đầy đủ, chạy nền, agent nào chạy; với subagent là loại, model, số bước, tool, token), bấm `▴` để thu lại. Icon (linh vật cam, 9 trang phục) và huy hiệu trạng thái ở góc: xanh dương đang chạy, xanh lá xong, đỏ lỗi, vàng chạy nền, xám bị từ chối/dừng.
 
 ![Icons](docs/icons.png)
 
@@ -76,6 +76,7 @@ Terminal không vẽ được `Svg`, nên ở terminal mỗi việc là một d�
 
 | Trường | Mặc định | Tác dụng |
 | :- | :- | :- |
+| `summarize` | `model` | Lệnh shell không có mô tả: `model` nhờ Haiku viết vài chữ tóm tắt, với mức effort thấp nhất (`low`) và tối đa 30 token (mỗi lệnh một lần gọi model rất nhỏ, tính vào usage của phiên); `off` chỉ dùng tóm tắt nhanh suy ra từ lệnh |
 | `autoOpen` | `agents` | `agents`: tự mở pane khi một subagent bắt đầu (mỗi đợt một lần). `never`: chỉ mở bằng lệnh |
 
 ## Cách hoạt động
