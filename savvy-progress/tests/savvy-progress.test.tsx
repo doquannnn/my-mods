@@ -169,7 +169,7 @@ test('a command without a description gets a short summary', async ($, on) => {
   const asked: string[] = []
   on('model.complete', (_: unknown, e: { prompt: string; model: string }) => {
     asked.push(e.model)
-    return { value: { isAnswered: true, text: 'Inspect project folder and tools.', usage: {} } }
+    return { value: { isAnswered: true, text: 'Inspect project folder and tools.', usage: {} } } as any
   })
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true } as any)
   await $.tool.call({ tool: 'Bash', command: 'cd "/home/me/Personal Assistant" && git ls-files | head -300' } as any)
