@@ -44,6 +44,7 @@ Cách sửa (trong `hooks/register.tsx`):
 3. **Subagent nền không bị đánh dấu lỗi nhầm.** Nhờ Claude chạy 2–3 subagent nền (mặc định Agent chạy nền). Trong lúc chúng chạy, hỏi thêm câu khác. Sau 15 giây và sau khi lượt chat kết thúc, các subagent đó phải vẫn đang chạy, không thành `✗ no longer running`.
 4. **Subagent chết được dọn.** Thoát Claude Code khi subagent đang chạy, mở lại, hỏi một câu. Subagent phải thành `✗` với `no longer running`.
 5. **Hết timeout.** Nhờ Claude chạy lệnh nền `sleep 200` với `timeout` 60000 (60 giây). Sau khoảng 2 phút, lệnh phải thành `–` với `stopped: past its timeout`.
+   Đã thử trong Claude Code tương tác (terminal, v2.1.331, 24/11/2026) với `python3 -c 'import time; time.sleep(200)'`: lúc 20 giây pane hiện `◌ $ python3 … — Timeout probe · 20s · bg`, thanh Progress hiện `0/1 shell 1 running`; lúc 2 phút pane hiện `Shell 1 done` và `– $ python3 … — Timeout probe · 2m00s · stopped`. Tiến trình cũng không còn trên máy.
 
 Nếu bước nào sai, chụp pane (mở `▾` của thẻ đó) gửi lại.
 
