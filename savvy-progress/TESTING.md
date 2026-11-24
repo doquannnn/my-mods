@@ -20,6 +20,8 @@ Marketplace `my-mods` được cài từ chính thư mục repo này (nguồn `d
 
 Bug: lệnh nền "Wait for loop render completion" (do subagent `general-purpose` chạy) vẫn hiện đang chạy sau khi Claude bị tắt vì thiếu RAM và mở lại.
 
+Theo log phiên: lệnh này chạy ở tiền cảnh với `timeout` 560 giây, sau 180 giây thì Claude tự chuyển nó sang chạy nền (task `bt5a1aoda`). Ảnh chụp lúc 43m54s là bản 0.6.0, khi chưa có phần sửa. Hai test `a moved-to-background wait …` mô phỏng đúng trường hợp này, và chúng hỏng khi bỏ phần sửa.
+
 Cách sửa (trong `hooks/register.tsx`):
 
 1. Khi một lượt chat kết thúc (`classic.Stop`, `classic.SubagentStop`), lệnh nền không còn trong `background_tasks` thì đánh dấu `stopped: no longer running` (hàm `reconcile`).

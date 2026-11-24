@@ -219,6 +219,58 @@ test('a background shell that is no longer in flight stops showing as running', 
   await pane.unmount()
 })
 
+// The case seen on a real machine: a subagent's foreground wait (timeout
+// 560s) was moved to the background after 180s, then Claude Code was killed
+// for lack of memory and reopened.
+const stuck = {
+  tool: 'Bash',
+  agentId: 'a1',
+  command: "cd no_blender; timeout 540 sh -c 'until [ -s renders/loop_log.txt ]; do sleep 5; done'; cat renders/loop_log.txt",
+  description: 'Wait for loop render completion',
+  timeout: 560_000,
+}
+const movedToBackground = { result: { stdout: '', stderr: '', interrupted: false, backgroundTaskId: 'bt5a1aoda' } }
+
+test('a moved-to-background wait lost when Claude Code was killed stops at the next turn end', async ($, on) => {
+  let answer: unknown = movedToBackground
+  engine(on, () => answer)
+  on('classic.Stop', () => ({}))
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true } as any)
+  await $.agent.spawn({ prompt: 'x', description: 'Rebuild island without Blender', subagentType: 'general-purpose' } as any)
+  await $.tool.call(stuck as any)
+
+  // Reopened: a new session start, and the task is no longer in flight.
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true } as any)
+  await $.classic.Stop({ stop_hook_active: false, background_tasks: [] } as any)
+
+  const pane = await $.ui.mount({ ...PANE, surface: 'desktop' } as any)
+  expect(await pane.find({ type: 'Text', text: /^◌ / })).toBeUndefined()
+  expect(await pane.find({ type: 'Text', text: /Shell\s+1 done/ })).toBeDefined()
+  await openAll(pane)
+  expect(await pane.find({ type: 'Text', text: /stopped: no longer running/ })).toBeDefined()
+  await pane.unmount()
+})
+
+test('a moved-to-background wait stops showing as running after 41 minutes even with no turn end', async ($, on) => {
+  const time = mock.clock(on)
+  engine(on, () => movedToBackground, false)
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true } as any)
+  await $.tool.call(stuck as any)
+
+  await time.advance(40 * 60_000)
+  let pane = await $.ui.mount({ ...PANE, surface: 'desktop' } as any)
+  expect(await pane.find({ type: 'Text', text: /^◌ / })).toBeDefined()
+  await pane.unmount()
+
+  // The screenshot's 43m54s.
+  await time.advance(3 * 60_000 + 54_000)
+  pane = await $.ui.mount({ ...PANE, surface: 'desktop' } as any)
+  expect(await pane.find({ type: 'Text', text: /^◌ / })).toBeUndefined()
+  await openAll(pane)
+  expect(await pane.find({ type: 'Text', text: /stopped: past its timeout/ })).toBeDefined()
+  await pane.unmount()
+})
+
 test('a subagent lost when Claude Code closed stops showing as running', async ($, on) => {
   engine(on, () => ok)
   on('classic.Stop', () => ({}))
