@@ -30,7 +30,8 @@ Cách sửa (trong `hooks/register.tsx`):
 
 ### Chưa kiểm chứng
 
-- [ ] **Mã task có khớp không.** Giả định: `id` trong `background_tasks` trùng với `backgroundTaskId` mà Bash trả về. Dự phòng: so khớp theo nội dung lệnh. Nếu cả hai đều không khớp, một lệnh nền **còn sống** sẽ bị đánh dấu `stopped` nhầm khi lượt chat kết thúc.
+- [x] **Mã task có khớp không.** Giả định: `id` trong `background_tasks` trùng với `backgroundTaskId` mà Bash trả về. Dự phòng: so khớp theo nội dung lệnh. Nếu cả hai đều không khớp, một lệnh nền **còn sống** sẽ bị đánh dấu `stopped` nhầm khi lượt chat kết thúc.
+  Đã thử trên Claude Code v2.1.330 (24/11/2026), bằng một plugin nhỏ ghi lại hai giá trị này trong một lượt `claude -p` chạy `sleep 90` nền: Bash trả `backgroundTaskId: "bs8q5axyt"`; khi lượt kết thúc, `background_tasks` có `{ id: "bs8q5axyt", type: "shell", status: "running", command: "sleep 90" }`. Lệnh xong thì danh sách rỗng. Mã khớp.
 - [ ] **Subagent nền không bị đánh dấu lỗi nhầm.** Giả định: `$.agent.list()` vẫn liệt kê subagent chạy nền với trạng thái `running`, `waiting` hoặc `idle` trong lúc nó chạy.
 - [ ] **Lệnh đang kẹt được dọn** sau khi cập nhật plugin và có một lượt chat kết thúc.
 
