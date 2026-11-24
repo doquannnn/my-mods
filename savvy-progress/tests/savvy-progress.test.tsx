@@ -37,6 +37,13 @@ function engine(on: any, shell: () => unknown) {
   on('prompt.submit', (_: unknown, e: unknown) => e)
 }
 
+// Opens every pane card's details, as a person pressing each arrow.
+async function openAll(ui: any) {
+  for (const b of await ui.findAll({ type: 'Button', text: '▾' })) {
+    await ui.press({ key: b.key })
+  }
+}
+
 const ok = { result: { stdout: 'ok', stderr: '', interrupted: false } }
 
 for (const surface of ['terminal', 'desktop'] as const) {
@@ -64,8 +71,14 @@ for (const surface of ['terminal', 'desktop'] as const) {
       expect(await pane.find({ type: 'Text', text: /◌ \$ npm run dev .*bg/ })).toBeDefined()
     } else {
       expect(await pane.findAll({ type: 'Svg' } as any)).toHaveLength(3)
-      expect(await pane.find({ type: 'Text', text: /^\$ npm test$/ })).toBeDefined()
+      // Collapsed: the description alone, the command hidden.
       expect(await pane.find({ type: 'Text', text: /^Run tests$/ })).toBeDefined()
+      expect(await pane.find({ type: 'Text', text: /npm test/ })).toBeUndefined()
+      expect(await pane.find({ type: 'Text', text: /^\$ npm run lint$/ })).toBeDefined()
+      await openAll(pane)
+      expect(await pane.find({ type: 'Text', text: /^\$ npm test$/ })).toBeDefined()
+      expect(await pane.find({ type: 'Text', text: /^\$ npm run dev\nbackground$/ })).toBeDefined()
+      expect(await pane.findAll({ type: 'Button', text: '▴' })).toHaveLength(3)
       expect(await pane.find({ type: 'Text', text: /^✗ / })).toBeDefined()
       expect(await pane.find({ type: 'Text', text: /^◌ / })).toBeDefined()
     }
@@ -99,8 +112,10 @@ for (const surface of ['terminal', 'desktop'] as const) {
       expect(await pane.find({ type: 'Text', text: /\$ git log -1 · .* by Explore/ })).toBeDefined()
     } else {
       expect(await pane.find({ type: 'Text', text: /^Find auth code$/ })).toBeDefined()
+      expect(await pane.find({ type: 'Text', text: /^Explore · / })).toBeUndefined()
+      await openAll(pane)
       expect(await pane.find({ type: 'Text', text: /^Explore · .*2 tools · \$ git log -1$/ })).toBeDefined()
-      expect(await pane.find({ type: 'Text', text: /^by Explore$/ })).toBeDefined()
+      expect(await pane.find({ type: 'Text', text: /^\$ git log -1\nby Explore$/ })).toBeDefined()
       const icons = await pane.findAll({ type: 'Svg' } as any)
       expect(icons).toHaveLength(2)
     }
@@ -133,6 +148,7 @@ test('a subagent long shell command is shown short', async ($, on) => {
   const long = 'cd "/home/me/Project" && ' + 'grep -nE x file | head -20; '.repeat(20)
   await $.tool.call({ tool: 'Bash', command: long, agentId: 'a1' } as any)
   let pane = await $.ui.mount({ ...PANE, surface: 'desktop' } as any)
+  await openAll(pane)
   const sub = await pane.find({ type: 'Text', text: /^general-purpose · / })
   expect(sub?.text.length).toBeLessThan(140)
   expect(sub?.text).toContain('…')
